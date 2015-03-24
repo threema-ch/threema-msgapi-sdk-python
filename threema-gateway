@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+"""
+The command line interface for the Threema gateway service.
+"""
+import re
+
+import click
+
+from threema.gateway import simple, e2e, util, Connection
+from threema.gateway.key import HMAC, Key
+
+
+@click.group()
+def cli():
+    """
+    Command Line Interface. Use --help for details.
+    """
+    pass
+
+
+@cli.command(short_help='Encrypt a text message.', help="""
+Encrypt standard input using the given sender PRIVATE KEY and recipient
+PUBLIC KEY. Prints two lines to standard output: first the nonce (hex),
+and then the encrypted box (hex).
+""")
+@click.argument('private_key')
+@click.argument('public_key')
+def encrypt(private_key, public_key):
+    # Get key instances
+    private_key = util.read_key_or_key_file(private_key, Key.Type.private)
+    public_key = util.read_key_or_key_file(public_key, Key.Type.public)
+
+    # Read text from stdin
+    text = click.get_text_stream('stdin').read()
+
+    # Print nonce and message as hex
+    nonce, message = e2e.TextMessage(text=text).encrypt(private_key, public_key)
+    click.echo()
+    click.echo(nonce)
+    click.echo(message)
+
+
+@cli.command(short_help='Decrypt a message.', help="""
+Decrypt standard input using the given recipient PRIVATE KEY and sender PUBLIC KEY.
+The NONCE must be given on the command line, and the box (hex) on standard input.
+Prints the decrypted message to standard output.
+""")
+@click.argument('private_key')
+@click.argument('public_key')
+@click.argument('nonce')
+def decrypt(private_key, public_key, nonce):
+    # Get key instances
+    private_key = util.read_key_or_key_file(private_key, Key.Type.private)
+    public_key = util.read_key_or_key_file(public_key, Key.Type.public)
+
+    # Read message from stdin
+    message = click.get_text_stream('stdin').read()
+
+    # Print text
+    text_message = e2e.decrypt(private_key, public_key, nonce, message)
+    click.echo()
+    click.echo(text_message)
+
+
+@cli.command(short_help='Generate a new key pair.', help="""
+Generate a new key pair and write the PRIVATE and PUBLIC keys to
+the respective files.
+""")
+@click.argument('private_key_file')
+@click.argument('public_key_file')
+def generate(private_key_file, public_key_file):
+    # Generate key pair and hexlify both keys
+    private_key, public_key = [Key.encode(key) for key in Key.generate_pair()]
+
+    # Write keys to files
+    with open(private_key_file, 'w') as sk_file, open(public_key_file, 'w') as pk_file:
+        sk_file.write(private_key + '\n')
+        pk_file.write(public_key + '\n')
+
+
+# noinspection PyShadowingBuiltins
+@cli.command(short_help='Hash an email address or phone number.', help="""
+Hash an email address or a phone number for identity lookup.
+Prints the hash in hex.
+""")
+@click.option('-e', '--email', help='An email address.')
+@click.option('-p', '--phone', help='A phone number in E.164 format.')
+def hash(**arguments):
+    mode = {key: value for key, value in arguments.items() if value is not None}
+
+    # Check that either email or phone has been specified
+    if len(mode) != 1:
+        error = 'Please specify exactly one email address or one phone number.'
+        raise click.ClickException(error)
+
+    # Unpack message and hash type
+    hash_type, message = mode.popitem()
+
+    # Email or phone?
+    if hash_type == 'email':
+        message = message.lower().strip()
+    else:
+        message = re.sub(r'[^0-9]', '', message)
+
+    click.echo(HMAC.hash(message, hash_type).hexdigest())
+
+
+@cli.command(short_help='Derive the public key from the private key.', help="""
+Derive the public key that corresponds with the given PRIVATE KEY.
+""")
+@click.argument('private_key')
+def derive(private_key):
+    # Get private key instance and derive public key
+    private_key = util.read_key_or_key_file(private_key, Key.Type.private)
+    public_key = Key.derive_public(private_key)
+
+    # Return hex encoded public key
+    click.echo(Key.encode(public_key))
+
+
+@cli.command(short_help='Send a message using simple mode.', help="""
+Send a message from standard input with server-side encryption to the given ID.
+FROM is the API identity and SECRET is the API secret.
+Prints the message ID on success.
+""")
+@click.argument('to')
+@click.argument('from')
+@click.argument('secret')
+def send_simple(**arguments):
+    # Read message from stdin
+    text = click.get_text_stream('stdin').read().strip()
+
+    # Create connection
+    connection = Connection(arguments['from'], arguments['secret'])
+
+    # Create message
+    message = simple.TextMessage(
+        connection=connection,
+        id=arguments['to'],
+        text=text
+    )
+
+    # Send message
+    click.echo()
+    click.echo(message.send())
+
+
+@cli.command(short_help='Send a message using end-to-end mode.', help="""
+Encrypt standard input and send the message to the given ID.
+FROM is the API identity and SECRET is the API secret.
+Prints the message ID on success.
+""")
+@click.argument('to')
+@click.argument('from')
+@click.argument('secret')
+@click.argument('private_key')
+@click.argument('public_key')
+def send_e2e(**arguments):
+    # Get key instances
+    private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
+    public_key = util.read_key_or_key_file(arguments['public_key'], Key.Type.public)
+
+    # Read message from stdin
+    text = click.get_text_stream('stdin').read().strip()
+
+    # Create connection
+    connection = Connection(
+        id=arguments['from'],
+        secret=arguments['secret'],
+        key=private_key
+    )
+
+    # Create message
+    message = e2e.TextMessage(
+        connection=connection,
+        id=arguments['to'],
+        key=public_key,
+        text=text
+    )
+
+    # Send message
+    click.echo()
+    click.echo(message.send())
+
+
+@cli.command(short_help='Lookup a Threema ID or the public key.', help="""
+Lookup the public key of the Threema ID or the ID linked to either the
+given email address or the given phone number.
+FROM is the API identity and SECRET is the API secret.
+""")
+@click.argument('from')
+@click.argument('secret')
+@click.option('-e', '--email', help='An email address.')
+@click.option('-p', '--phone', help='A phone number in E.164 format.')
+@click.option('-i', '--id', help='A Threema ID.')
+def lookup(**arguments):
+    modes = ['email', 'phone', 'id']
+    mode = {key: value for key, value in arguments.items()
+            if key in modes and value is not None}
+
+    # Check that one of the modes has been selected
+    if len(mode) != 1:
+        error = 'Please specify exactly one ID, one email address or one phone number.'
+        raise click.ClickException(error)
+
+    # Create connection and do lookup
+    connection = Connection(arguments['from'], secret=arguments['secret'])
+    if 'id' in mode:
+        click.echo(Key.encode(connection.get_public_key(arguments['id'])))
+    else:
+        click.echo(connection.get_id(**mode))
+
+
+if __name__ == '__main__':
+    cli()
