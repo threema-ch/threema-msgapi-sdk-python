@@ -11,7 +11,7 @@ On machines where Python 3 is not the default Python runtime, you should use
 ## Prerequisites
 
 ```
-$ sudo apt-get install python3 python3-pip python-virtualenv
+$ sudo apt-get install python3 python3-pip
 ```
 
 We recommend using the [virtualenv](http://virtualenv.readthedocs.org/en/latest/)
@@ -19,14 +19,14 @@ package to create an isolated Python environment:
 
 ```
 $ sudo pip install virtualenv
-$ virtualenv -p python3 threema-gateway
+$ virtualenv -p python3 threema-gateway-venv
 ```
 
-You can switch into the created virtual environment *threema-gateway*
+You can switch into the created virtual environment *threema-gateway-venv*
 by running this command:
 
 ```
-$ source photogram-venv/bin/activate
+$ source threema-gateway-venv/bin/activate
 ```
 
 To deactivate the virtual environment, just run:
@@ -42,8 +42,7 @@ If you are using a virtual environment, activate it first.
 Install the module by running:
 
 ```
-$ unzip threema-gateway-*.zip
-$ pip install threema-gateway
+$ pip install git+https://github.com/threema-ch/msgapi-sdk-python.git
 ```
 
 The dependency ``libnacl`` will be installed automatically. However, you may need to
