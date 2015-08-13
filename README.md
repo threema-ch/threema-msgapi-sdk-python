@@ -14,7 +14,7 @@ On machines where Python 3 is not the default Python runtime, you should use
 $ sudo apt-get install python3 python3-pip
 ```
 
-We recommend using the [virtualenv](http://virtualenv.readthedocs.org/en/latest/)
+We recommend using the [virtualenv](https://virtualenv.readthedocs.org/en/latest/)
 package to create an isolated Python environment:
 
 ```
@@ -46,7 +46,7 @@ $ pip install git+https://github.com/threema-ch/msgapi-sdk-python.git
 ```
 
 The dependency ``libnacl`` will be installed automatically. However, you may need to
-[install ``libsodium``](http://doc.libsodium.org/installation/README.html) for ``libnacl``
+[install ``libsodium``](https://download.libsodium.org/doc/installation/index.html) for ``libnacl``
 to work. 
 
 ## Command Line Usage
