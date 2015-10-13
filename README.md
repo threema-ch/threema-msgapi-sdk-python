@@ -1,3 +1,13 @@
+**Dear visitor**
+**This repository is no longer maintained.**
+**To download the latest version of the Threema Getway SDK please go to:**
+
+https://gateway.threema.ch/en/developer/sdk-python
+
+
+
+
+
 # Threema Gateway API
 
 **threema-gateway** is a Python 3 module for the Threema gateway service. This API can
