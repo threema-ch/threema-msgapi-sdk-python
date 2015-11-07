@@ -1,13 +1,3 @@
-**Dear visitor**
-**This repository is no longer maintained.**
-**To download the latest version of the Threema Getway SDK please go to:**
-
-https://gateway.threema.ch/en/developer/sdk-python
-
-
-
-
-
 # Threema Gateway API
 
 **threema-gateway** is a Python 3 module for the Threema gateway service. This API can
@@ -52,7 +42,7 @@ If you are using a virtual environment, activate it first.
 Install the module by running:
 
 ```
-$ pip install git+https://github.com/threema-ch/msgapi-sdk-python.git
+$ pip install git+https://github.com/lgrahl/msgapi-sdk-python.git
 ```
 
 The dependency ``libnacl`` will be installed automatically. However, you may need to
