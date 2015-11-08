@@ -1,3 +1,5 @@
+**If you are confused about why the repository has been moved, please read [Issue #5](https://github.com/lgrahl/threema-msgapi-sdk-python/issues/5).**
+
 # Threema Gateway API
 
 **threema-gateway** is a Python 3 module for the Threema gateway service. This API can
