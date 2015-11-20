@@ -5,12 +5,11 @@ service with your end-to-end account.
 from threema.gateway import Connection, MessageError
 from threema.gateway.e2e import TextMessage
 
-
 # Create a connection
 connection = Connection(
-	id='*YOUR_GATEWAY_THREEMA_ID',
-	secrect='YOUR_GATEWAY_THREEMA_ID_SECRET',
-	key='private:YOUR_PRIVATE_KEY'
+    id='*YOUR_GATEWAY_THREEMA_ID',
+    secret='YOUR_GATEWAY_THREEMA_ID_SECRET',
+    key='private:YOUR_PRIVATE_KEY'
 )
 
 
