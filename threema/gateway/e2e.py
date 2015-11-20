@@ -1,6 +1,7 @@
 """
 Provides classes and functions for the end-to-end encryption mode.
 """
+import abc
 import enum
 import random
 import binascii
@@ -75,7 +76,7 @@ def decrypt(private, public, nonce, message):
         return DeliveryReceipt(payload=payload)
 
 
-class Message(object):
+class Message(metaclass=abc.ABCMeta):
     """
     A message class all end-to-end mode messages are derived from.
 
@@ -138,6 +139,12 @@ class Message(object):
                 self.key = file.readline().strip()
         self._key_file = key_file
 
+    @abc.abstractmethod
+    def send(self):
+        """
+        Send a message.
+        """
+
 
 class DeliveryReceipt(Message):
     """
@@ -173,6 +180,12 @@ class DeliveryReceipt(Message):
     def __str__(self):
         ids = (binascii.hexlify(id_).decode('utf-8') for id_ in self.ids)
         return 'Delivery receipt({}): {}'.format(self.type.name, ', '.join(ids))
+
+    def send(self):
+        """
+        Send a delivery receipt.
+        """
+        raise NotImplementedError()
 
 
 class TextMessage(Message):

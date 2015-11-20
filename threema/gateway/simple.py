@@ -1,12 +1,14 @@
 """
 Provides classes for the simple mode.
 """
+import abc
+
 from threema.gateway import MessageError
 
 __all__ = ('Message', 'TextMessage')
 
 
-class Message(object):
+class Message(metaclass=abc.ABCMeta):
     """
     A message class all simple mode messages are derived from.
 
@@ -18,6 +20,12 @@ class Message(object):
     def __init__(self, connection=None, id=None):
         self.connection = connection
         self.id = id
+
+    @abc.abstractmethod
+    def send(self):
+        """
+        Send a message.
+        """
 
 
 class TextMessage(Message):

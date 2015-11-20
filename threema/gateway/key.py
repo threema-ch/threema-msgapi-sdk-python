@@ -11,7 +11,7 @@ import libnacl.encode
 __all__ = ('HMAC', 'Key')
 
 
-class HMAC(object):
+class HMAC:
     """
     A collection of HMAC functions used for the gateway service.
     """
@@ -36,7 +36,7 @@ class HMAC(object):
         return hmac.new(HMAC.keys[hash_type], message.encode('ascii'), hashlib.sha256)
 
 
-class Key(object):
+class Key:
     """
     Encode or decode a key.
     """

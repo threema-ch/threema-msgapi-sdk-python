@@ -134,7 +134,7 @@ class MessageServerError(MessageError, GatewayServerError):
 
 
 # noinspection PyShadowingNames,PyShadowingBuiltins
-class Connection(object):
+class Connection:
     """
     Container for the sender's Threema ID and the Threema Gateway
     secret. Can be applied to multiple messages for both simple and
