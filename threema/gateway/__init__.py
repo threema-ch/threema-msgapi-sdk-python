@@ -31,7 +31,7 @@ from threema.gateway.key import Key
 
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 __all__ = ('GatewayError', 'GatewayServerError', 'IDError', 'IDServerError', 'KeyError',
            'KeyServerError', 'MessageError', 'MessageServerError', 'Connection')
 
