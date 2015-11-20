@@ -211,5 +211,22 @@ def lookup(**arguments):
         click.echo(connection.get_id(**mode))
 
 
+@cli.command(short_help='Lookup the reception capabilities of a Threema ID', help="""
+Lookup the reception capabilities of a Threema ID.
+FROM is the API identity and SECRET is the API secret.
+Prints a set of capabilities in alphabetical order on success.
+""")
+@click.argument('from')
+@click.argument('secret')
+@click.argument('id')
+def capabilities(**arguments):
+    # Create connection
+    connection = Connection(arguments['from'], arguments['secret'])
+
+    # Lookup and format returned capabilities
+    capabilities_ = connection.get_reception_capabilities(arguments['id'])
+    click.echo(', '.join(sorted(capability.value for capability in capabilities_)))
+
+
 if __name__ == '__main__':
     cli()

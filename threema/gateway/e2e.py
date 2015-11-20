@@ -91,7 +91,9 @@ class Message(metaclass=abc.ABCMeta):
 
     @enum.unique
     class Type(enum.Enum):
-        """The type of a message."""
+        """
+        The type of a message.
+        """
         text_message = b'\x01'
         delivery_receipt = b'\x80'
 

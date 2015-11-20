@@ -2,7 +2,7 @@
 You can modify and use one of the lines below to test the lookup
 functionality of the gateway service.
 """
-from threema.gateway import Connection, IDError, Key
+from threema.gateway import Connection, GatewayError, Key
 
 
 # Create a connection
@@ -17,9 +17,9 @@ def main():
         print(connection.get_id(email='test@threema.ch'))
         email_hash = '1ea093239cc5f0e1b6ec81b866265b921f26dc4033025410063309f4d1a8ee2c'
         print(connection.get_id(email_hash=email_hash))
-        print(connection.get_public_key('ECHOECHO'))
         print(Key.encode(connection.get_public_key('ECHOECHO')))
-    except IDError as exc:
+        print(connection.get_reception_capabilities('ECHOECHO'))
+    except GatewayError as exc:
         print('Error:', exc)
 
 

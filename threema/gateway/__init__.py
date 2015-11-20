@@ -21,6 +21,8 @@ The mode that you can use depends on the way your account was set up.
 
 .. moduleauthor:: Lennart Grahl <lennart.grahl@threema.ch>
 """
+import enum
+
 import requests
 import libnacl.public
 import libnacl.encode
@@ -97,10 +99,30 @@ class KeyError(GatewayError):
     pass
 
 
-class KeyServerError(GatewayServerError):
+class KeyServerError(KeyError, GatewayServerError):
     """
     The server has responded with an error code while fetching a
     public key.
+    """
+    status_description = {
+        401: 'API identity or secret incorrect',
+        404: 'No matching Threema ID could be found',
+        500: 'Temporary internal server error occurred'
+    }
+
+
+class ReceptionCapabilitiesError(GatewayError):
+    """
+    An invalid reception capability has been returned.
+    """
+    pass
+
+
+class ReceptionCapabilitiesServerError(
+    ReceptionCapabilitiesError, GatewayServerError):
+    """
+    The server responded with an error code while fetching the reception
+    capabilities of a Threema ID.
     """
     status_description = {
         401: 'API identity or secret incorrect',
@@ -133,6 +155,18 @@ class MessageServerError(MessageError, GatewayServerError):
     }
 
 
+@enum.unique
+class ReceptionCapability(enum.Enum):
+    """
+    The reception capability of a Threema ID.
+    """
+    text = 'text'
+    image = 'image'
+    video = 'video'
+    audio = 'audio'
+    file = 'file'
+
+
 # noinspection PyShadowingNames,PyShadowingBuiltins
 class Connection:
     """
@@ -154,6 +188,7 @@ class Connection:
         'get_id_by_phone_hash': 'https://msgapi.threema.ch/lookup/phone_hash/{}',
         'get_id_by_email': 'https://msgapi.threema.ch/lookup/email/{}',
         'get_id_by_email_hash': 'https://msgapi.threema.ch/lookup/email_hash/{}',
+        'get_reception_capabilities': 'https://msgapi.threema.ch/capabilities/{}',
         'send_simple': 'https://msgapi.threema.ch/send_simple',
         'send_e2e': 'https://msgapi.threema.ch/send_e2e'
     }
@@ -253,6 +288,25 @@ class Connection:
             return response.text
         else:
             raise IDServerError(response)
+
+    def get_reception_capabilities(self, id):
+        """
+        Get the reception capabilities of a Threema ID.
+
+        Arguments:
+            - `id`: A Threema ID.
+
+        Return a set containing items from :class:`ReceptionCapability`.
+        """
+        response = self._get(self.urls['get_reception_capabilities'].format(id))
+        if response.status_code == 200:
+            try:
+                return {ReceptionCapability(capability.strip())
+                        for capability in response.text.split(',')}
+            except ValueError as exc:
+                raise ReceptionCapabilitiesError('Invalid reception capability') from exc
+        else:
+            raise ReceptionCapabilitiesServerError(response)
 
     def send_simple(self, **data):
         """
