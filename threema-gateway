@@ -228,5 +228,19 @@ def capabilities(**arguments):
     click.echo(', '.join(sorted(capability.value for capability in capabilities_)))
 
 
+@cli.command(short_help='Get the number of credits left on the account', help="""
+Retrieve the number of credits left on the used account.
+FROM is the API identity and SECRET is the API secret.
+""")
+@click.argument('from')
+@click.argument('secret')
+def credits(**arguments):
+    # Create connection
+    connection = Connection(arguments['from'], arguments['secret'])
+
+    # Get and print credits
+    click.echo(connection.get_credits())
+
+
 if __name__ == '__main__':
     cli()

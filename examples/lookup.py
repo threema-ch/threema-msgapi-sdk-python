@@ -11,6 +11,7 @@ connection = Connection('*YOUR_GATEWAY_THREEMA_ID', 'YOUR_GATEWAY_THREEMA_ID_SEC
 
 def main():
     try:
+        print(connection.get_credits())
         print(connection.get_id(phone='41791234567'))
         phone_hash = 'ad398f4d7ebe63c6550a486cc6e07f9baa09bd9d8b3d8cb9d9be106d35a7fdbc'
         print(connection.get_id(phone_hash=phone_hash))

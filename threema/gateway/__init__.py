@@ -35,8 +35,8 @@ __version__ = '1.0.1'
 __all__ = (
     'GatewayError', 'GatewayServerError', 'IDError', 'IDServerError', 'KeyError',
     'KeyServerError', 'ReceptionCapabilitiesError', 'ReceptionCapabilitiesServerError',
-    'MessageError', 'MessageServerError', 'BlobError', 'BlobServerError',
-    'ReceptionCapability', 'Connection'
+    'CreditsServerError', 'MessageError', 'MessageServerError', 'BlobError',
+    'BlobServerError', 'ReceptionCapability', 'Connection'
 )
 
 
@@ -135,6 +135,17 @@ class ReceptionCapabilitiesServerError(
     }
 
 
+class CreditsServerError(GatewayServerError):
+    """
+    The server has responded with an error code while fetching the
+    remaining credits.
+    """
+    status_description = {
+        401: 'API identity or secret incorrect',
+        500: 'Temporary internal server error occurred'
+    }
+
+
 class MessageError(GatewayError):
     """
     Indicates that a message is invalid. The server has not been
@@ -216,6 +227,7 @@ class Connection:
         'get_id_by_email': 'https://msgapi.threema.ch/lookup/email/{}',
         'get_id_by_email_hash': 'https://msgapi.threema.ch/lookup/email_hash/{}',
         'get_reception_capabilities': 'https://msgapi.threema.ch/capabilities/{}',
+        'get_credits': 'https://msgapi.threema.ch/credits',
         'send_simple': 'https://msgapi.threema.ch/send_simple',
         'send_e2e': 'https://msgapi.threema.ch/send_e2e',
         'upload_blob': 'https://msgapi.threema.ch/upload_blob',
@@ -336,6 +348,16 @@ class Connection:
                 raise ReceptionCapabilitiesError('Invalid reception capability') from exc
         else:
             raise ReceptionCapabilitiesServerError(response)
+
+    def get_credits(self):
+        """
+        Return the number of credits left on the account.
+        """
+        response = self._get(self.urls['get_credits'])
+        if response.status_code == 200:
+            return response.text
+        else:
+            raise CreditsServerError(response)
 
     def send_simple(self, **data):
         """
