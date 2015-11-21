@@ -32,8 +32,12 @@ from threema.gateway.key import Key
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
 __version__ = '1.0.1'
-__all__ = ('GatewayError', 'GatewayServerError', 'IDError', 'IDServerError', 'KeyError',
-           'KeyServerError', 'MessageError', 'MessageServerError', 'Connection')
+__all__ = (
+    'GatewayError', 'GatewayServerError', 'IDError', 'IDServerError', 'KeyError',
+    'KeyServerError', 'ReceptionCapabilitiesError', 'ReceptionCapabilitiesServerError',
+    'MessageError', 'MessageServerError', 'BlobError', 'BlobServerError',
+    'ReceptionCapability', 'Connection'
+)
 
 
 class GatewayError(Exception):
@@ -155,6 +159,29 @@ class MessageServerError(MessageError, GatewayServerError):
     }
 
 
+class BlobError(GatewayError):
+    """
+    Indicates that a blob is invalid. The server has not been contacted,
+    yet.
+    """
+    pass
+
+
+class BlobServerError(BlobError, GatewayServerError):
+    """
+    The server has responded with an error code while uploading or
+    downloading a blob.
+    """
+    status_description = {
+        400: 'Required parameters missing or blob is empty',
+        401: 'API identity or secret incorrect',
+        402: 'Insufficient credits',
+        404: 'No matching blob found for the supplied ID',
+        413: 'Blob too big',
+        500: 'Temporary internal server error occurred'
+    }
+
+
 @enum.unique
 class ReceptionCapability(enum.Enum):
     """
@@ -190,7 +217,9 @@ class Connection:
         'get_id_by_email_hash': 'https://msgapi.threema.ch/lookup/email_hash/{}',
         'get_reception_capabilities': 'https://msgapi.threema.ch/capabilities/{}',
         'send_simple': 'https://msgapi.threema.ch/send_simple',
-        'send_e2e': 'https://msgapi.threema.ch/send_e2e'
+        'send_e2e': 'https://msgapi.threema.ch/send_e2e',
+        'upload_blob': 'https://msgapi.threema.ch/upload_blob',
+        'download_blob': 'https://msgapi.threema.ch/blobs/{}'
     }
 
     def __init__(self, id, secret, key=None, key_file=None):
@@ -330,6 +359,32 @@ class Connection:
         """
         return self._send(self.urls['send_e2e'], data)
 
+    def upload(self, data):
+        """
+        Upload a blob.
+
+        Arguments:
+            - `data`: Binary data.
+
+        Return the ID of the blob.
+        """
+        return self._upload(self.urls['upload_blob'], data)
+
+    def download(self, id):
+        """
+        Download a blob.
+
+        Arguments:
+            - `id`: The blob ID.
+
+        Return binary data.
+        """
+        response = self._get(self.urls['download_blob'].format(id))
+        if response.status_code == 200:
+            return response.content
+        else:
+            raise BlobServerError(response)
+
     def _get(self, *args, **kwargs):
         """
         Wrapper for :func:`requests.get` that injects the connection's
@@ -362,3 +417,25 @@ class Connection:
             return response.text
         else:
             raise MessageServerError(response)
+
+    def _upload(self, url, data):
+        """
+        Upload a blob.
+
+        Arguments:
+            - `data`: Binary data.
+
+        Return the ID of the blob.
+        """
+        # Inject Threema ID and secret
+        params = {'from': self.id, 'secret': self.secret}
+
+        # Prepare multipart encoded file
+        files = {'file': data}
+
+        # Send message
+        response = requests.post(url, params=params, files=files)
+        if response.status_code == 200:
+            return response.text
+        else:
+            raise BlobServerError(response)
