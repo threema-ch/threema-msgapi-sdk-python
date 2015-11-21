@@ -95,6 +95,8 @@ class Message(metaclass=abc.ABCMeta):
         The type of a message.
         """
         text_message = b'\x01'
+        image_message = b'\x02'
+        file_message = b'\x17'
         delivery_receipt = b'\x80'
 
     # noinspection PyShadowingBuiltins

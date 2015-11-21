@@ -228,6 +228,7 @@ def capabilities(**arguments):
     click.echo(', '.join(sorted(capability.value for capability in capabilities_)))
 
 
+# noinspection PyShadowingBuiltins
 @cli.command(short_help='Get the number of credits left on the account', help="""
 Retrieve the number of credits left on the used account.
 FROM is the API identity and SECRET is the API secret.
