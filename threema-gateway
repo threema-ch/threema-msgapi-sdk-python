@@ -125,8 +125,8 @@ def derive(private_key):
     click.echo(Key.encode(public_key))
 
 
-@cli.command(short_help='Send a message using simple mode.', help="""
-Send a message from standard input with server-side encryption to the given ID.
+@cli.command(short_help='Send a text message using simple mode.', help="""
+Send atext  message from standard input with server-side encryption to the given ID.
 FROM is the API identity and SECRET is the API secret.
 Prints the message ID on success.
 """)
@@ -152,8 +152,8 @@ def send_simple(**arguments):
     click.echo(message.send())
 
 
-@cli.command(short_help='Send a message using end-to-end mode.', help="""
-Encrypt standard input and send the message to the given ID.
+@cli.command(short_help='Send a text message using end-to-end mode.', help="""
+Encrypt standard input and send the text message to the given ID.
 FROM is the API identity and SECRET is the API secret.
 Prints the message ID on success.
 """)
@@ -161,11 +161,17 @@ Prints the message ID on success.
 @click.argument('from')
 @click.argument('secret')
 @click.argument('private_key')
-@click.argument('public_key')
+@click.option('-k', '--public-key', help="""
+The public key of the recipient. Will be fetched automatically if not provided.
+""")
 def send_e2e(**arguments):
+    print(arguments)
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
-    public_key = util.read_key_or_key_file(arguments['public_key'], Key.Type.public)
+    if arguments['public_key'] is not None:
+        public_key = util.read_key_or_key_file(arguments['public_key'], Key.Type.public)
+    else:
+        public_key = None
 
     # Read message from stdin
     text = click.get_text_stream('stdin').read().strip()
@@ -183,6 +189,48 @@ def send_e2e(**arguments):
         id=arguments['to'],
         key=public_key,
         text=text
+    )
+
+    # Send message
+    click.echo()
+    click.echo(message.send())
+
+
+@cli.command(short_help='Send an image using end-to-end mode.', help="""
+Encrypt and send an image ('jpeg' or 'png') to the given ID.
+FROM is the API identity and SECRET is the API secret.
+IMAGE_PATH is a relative or absolute path to an image.
+Prints the message ID on success.
+""")
+@click.argument('to')
+@click.argument('from')
+@click.argument('secret')
+@click.argument('private_key')
+@click.argument('image_path')
+@click.option('-k', '--public-key', help="""
+The public key of the recipient. Will be fetched automatically if not provided.
+""")
+def send_image(**arguments):
+    # Get key instances
+    private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
+    if arguments['public_key'] is not None:
+        public_key = util.read_key_or_key_file(arguments['public_key'], Key.Type.public)
+    else:
+        public_key = None
+
+    # Create connection
+    connection = Connection(
+        id=arguments['from'],
+        secret=arguments['secret'],
+        key=private_key
+    )
+
+    # Create message
+    message = e2e.ImageMessage(
+        connection=connection,
+        id=arguments['to'],
+        key=public_key,
+        image_path=arguments['image_path']
     )
 
     # Send message
