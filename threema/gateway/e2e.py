@@ -3,13 +3,16 @@ Provides classes and functions for the end-to-end encryption mode.
 """
 import abc
 import enum
+import os
 import random
 import binascii
 import struct
 import mimetypes
+import json
 
 import libnacl
 import libnacl.public
+import libnacl.secret
 import libnacl.encode
 
 from threema.gateway import ReceptionCapability
@@ -19,12 +22,11 @@ from threema.gateway.key import Key
 __all__ = (
     'encrypt',
     'decrypt',
-    'encrypt_raw',
-    'decrypt_raw',
     'Message',
     'DeliveryReceipt',
     'TextMessage',
     'ImageMessage',
+    'FileMessage',
 )
 
 
@@ -47,7 +49,7 @@ def encrypt(private, public, data):
     padding = bytes([padding_length] * padding_length)
 
     # Assemble and encrypt the payload
-    return encrypt_raw(private, public, data + padding)
+    return pk_encrypt_raw(private, public, data + padding)
 
 
 def decrypt(private, public, nonce, data):
@@ -64,7 +66,7 @@ def decrypt(private, public, nonce, data):
     :class:`TextMessage`.
     """
     # Decrypt payload
-    payload = decrypt_raw(private, public, nonce, data)
+    payload = pk_decrypt_raw(private, public, nonce, data)
 
     # Remove padding and type
     type_ = payload[:1]
@@ -79,7 +81,7 @@ def decrypt(private, public, nonce, data):
         return DeliveryReceipt(payload=payload)
 
 
-def encrypt_raw(private, public, data):
+def pk_encrypt_raw(private, public, data):
     """
     Encrypt data.
 
@@ -96,7 +98,7 @@ def encrypt_raw(private, public, data):
     return box.encrypt(data, pack_nonce=False)
 
 
-def decrypt_raw(private, public, nonce, data):
+def pk_decrypt_raw(private, public, nonce, data):
     """
     Decrypt data.
 
@@ -126,6 +128,10 @@ class Message(metaclass=abc.ABCMeta):
         - `key_file`: A file where the private key is stored in. Can
           be used instead of passing the key directly.
     """
+    nonce = {
+        'file': (b'\x00' * 23) + b'\x01',
+        'thumbnail': (b'\x00' * 23) + b'\x02'
+    }
 
     @enum.unique
     class Type(enum.Enum):
@@ -228,7 +234,7 @@ class Message(metaclass=abc.ABCMeta):
         # Decrypt
         return decrypt(private, public, nonce, data)
 
-    def _encrypt_raw(self, data, private=None, public=None):
+    def _pk_encrypt_raw(self, data, private=None, public=None):
         """
         Encrypt data.
 
@@ -246,9 +252,9 @@ class Message(metaclass=abc.ABCMeta):
             public = self.key
 
         # Encrypt
-        return encrypt_raw(private, public, data)
+        return pk_encrypt_raw(private, public, data)
 
-    def _decrypt_raw(self, nonce, data, private=None, public=None):
+    def _pk_decrypt_raw(self, nonce, data, private=None, public=None):
         """
         Decrypt data.
 
@@ -266,7 +272,7 @@ class Message(metaclass=abc.ABCMeta):
             public = self.key
 
         # Decrypt
-        return decrypt_raw(private, public, nonce, data)
+        return pk_decrypt_raw(private, public, nonce, data)
 
     def _check_capabilities(self, required_capabilities):
         """
@@ -401,7 +407,7 @@ class TextMessage(Message):
 
 class ImageMessage(Message):
     """
-    An image message including a thumbnail.
+    An image message.
 
     Arguments for a new message:
         - `connection`: An instance of a connection.
@@ -465,7 +471,7 @@ class ImageMessage(Message):
                 self.image = file.read()
 
         # Encrypt and upload image
-        image_nonce, image_data = self._encrypt_raw(self.image)
+        image_nonce, image_data = self._pk_encrypt_raw(self.image)
         blob_id = binascii.unhexlify(self.connection.upload(image_data))
 
         # Pack payload
@@ -473,6 +479,118 @@ class ImageMessage(Message):
             '<1s{}sI{}s'.format(len(blob_id), len(image_nonce)),
             self.type.value, blob_id, len(image_data), image_nonce
         )
+
+        # Encrypt
+        nonce, message = self._encrypt(data)
+
+        # Send message
+        return self.connection.send_e2e(**{
+            'to': self.id,
+            'nonce': binascii.hexlify(nonce),
+            'box': binascii.hexlify(message)
+        })
+
+
+class FileMessage(Message):
+    """
+    A file message including a thumbnail.
+
+    Arguments for a new message:
+        - `connection`: An instance of a connection.
+        - `id`: Threema ID of the recipient.
+        - `key`: The public key of the recipient. Will be fetched from
+           the server if not supplied.
+        - `key_file`: A file where the private key is stored in. Can
+          be used instead of passing the key directly.
+        - `file_path`: The path to a file.
+        - `thumbnail_path`: The path to a thumbnail of the file.
+
+    Arguments for an existing message:
+        - `payload`: The remaining byte sequence of a decrypted
+          message.
+    """
+    required_capabilities = {
+        ReceptionCapability.file
+    }
+
+    def __init__(self, file_path=None, thumbnail_path=None, payload=None, **kwargs):
+        super().__init__(Message.Type.file_message, **kwargs)
+
+        # Validate arguments
+        mode = [argument for argument in (file_path, payload) if argument is not None]
+        if len(mode) != 1:
+            raise MessageError("Either 'file_path' or 'payload' need to be specified.")
+
+        # Unpack payload or store file path
+        if payload is not None:
+            self.file_content = payload
+            self.file_path = None
+            self.thumbnail_content = None
+            self.thumbnail_path = None
+            # TODO: Download file, decode thumbnail
+            raise NotImplementedError()
+        else:
+            self.file_content = None
+            self.file_path = file_path
+            self.thumbnail_content = None
+            self.thumbnail_path = thumbnail_path
+
+            # Guess the mime type
+            mime_type, _ = mimetypes.guess_type(file_path)
+            if mime_type is None:
+                # Fallback mime type
+                mime_type = 'application/octet-stream'
+            self.mime_type = mime_type
+
+            # TODO: Check the mime type of the thumbnail?
+
+    def send(self):
+        """
+        Send the encrypted file message.
+
+        Return the ID of the message.
+        """
+        # Check capabilities of recipient
+        self._check_capabilities(self.required_capabilities)
+
+        # Read the content of the file if not already read
+        if self.file_content is None:
+            with open(self.file_path, mode='rb') as file:
+                self.file_content = file.read()
+
+        # Encrypt and upload file
+        box = libnacl.secret.SecretBox()
+        file_data = box.encrypt(self.file_content, nonce=self.nonce['file'])
+        file_id = self.connection.upload(file_data)
+
+        # Build JSON
+        content = {
+            'b': file_id,
+            'k': box.hex_sk().decode('utf-8'),
+            'm': self.mime_type,
+            'n': os.path.basename(self.file_path),
+            's': len(self.file_content),
+            'i': 0,
+        }
+
+        # Encrypt and upload thumbnail (if any)
+        if self.thumbnail_path is not None:
+            # Read the content of the thumbnail file if not already read
+            if self.thumbnail_content is None:
+                with open(self.thumbnail_path, mode='rb') as file:
+                    self.thumbnail_content = file.read()
+
+            # Encrypt and upload thumbnail
+            thumbnail_data = box.encrypt(self.thumbnail_content,
+                                         nonce=self.nonce['thumbnail'])
+            thumbnail_id = self.connection.upload(thumbnail_data)
+
+            # Update JSON
+            content['t'] = thumbnail_id
+
+        # Pack payload (compact JSON encoding)
+        content = json.dumps(content, separators=(',', ':')).encode('utf-8')
+        data = self.type.value + content
 
         # Encrypt
         nonce, message = self._encrypt(data)

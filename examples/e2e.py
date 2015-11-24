@@ -3,7 +3,7 @@ You can modify and use one of the functions below to test the gateway
 service with your end-to-end account.
 """
 from threema.gateway import Connection, MessageError
-from threema.gateway.e2e import TextMessage, ImageMessage
+from threema.gateway.e2e import TextMessage, ImageMessage, FileMessage
 
 # Create a connection
 connection = Connection(
@@ -73,12 +73,47 @@ def send_image():
     return message.send()
 
 
+def send_file():
+    """
+    Send a file to a specific Threema ID.
+
+    Note that the public key will be automatically fetched from the
+    Threema servers. It is strongly recommended that you cache
+    public keys to avoid querying the API for each message.
+    """
+    message = FileMessage(
+        connection=connection,
+        id='ECHOECHO',
+        file_path='res/some_file.zip'
+    )
+    return message.send()
+
+
+def send_file_with_thumbnail():
+    """
+    Send a file to a specific Threema ID including a thumbnail.
+
+    Note that the public key will be automatically fetched from the
+    Threema servers. It is strongly recommended that you cache
+    public keys to avoid querying the API for each message.
+    """
+    message = FileMessage(
+        connection=connection,
+        id='ECHOECHO',
+        file_path='res/some_file.zip',
+        thumbnail_path='res/some_file_thumb.png'
+    )
+    return message.send()
+
+
 def main():
     try:
         send()
         send_cached_key()
         send_cached_key_file()
         send_image()
+        send_file()
+        send_file_with_thumbnail()
     except MessageError as exc:
         print('Error:', exc)
 

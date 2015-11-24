@@ -238,6 +238,52 @@ def send_image(**arguments):
     click.echo(message.send())
 
 
+@cli.command(short_help='Send a file using end-to-end mode.', help="""
+Encrypt and send a file to the given ID, optionally with a thumbnail.
+FROM is the API identity and SECRET is the API secret.
+FILE_PATH is a relative or absolute path to a file.
+Prints the message ID on success.
+""")
+@click.argument('to')
+@click.argument('from')
+@click.argument('secret')
+@click.argument('private_key')
+@click.argument('file_path')
+@click.option('-k', '--public-key', help="""
+The public key of the recipient. Will be fetched automatically if not provided.
+""")
+@click.option('-t', '--thumbnail-path', help="""
+The relative or absolute path to a thumbnail.
+""")
+def send_file(**arguments):
+    # Get key instances
+    private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
+    if arguments['public_key'] is not None:
+        public_key = util.read_key_or_key_file(arguments['public_key'], Key.Type.public)
+    else:
+        public_key = None
+
+    # Create connection
+    connection = Connection(
+        id=arguments['from'],
+        secret=arguments['secret'],
+        key=private_key
+    )
+
+    # Create message
+    message = e2e.FileMessage(
+        connection=connection,
+        id=arguments['to'],
+        key=public_key,
+        file_path=arguments['file_path'],
+        thumbnail_path=arguments['thumbnail_path']
+    )
+
+    # Send message
+    click.echo()
+    click.echo(message.send())
+
+
 @cli.command(short_help='Lookup a Threema ID or the public key.', help="""
 Lookup the public key of the Threema ID or the ID linked to either the
 given email address or the given phone number.

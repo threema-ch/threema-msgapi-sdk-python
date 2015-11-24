@@ -33,7 +33,7 @@ from threema.gateway.key import Key
 
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
-__version__ = '1.1.0'
+__version__ = '1.1.3'
 __all__ = (
     'ReceptionCapability',
     'Connection',
