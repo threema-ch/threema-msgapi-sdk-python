@@ -3,6 +3,7 @@
 The command line interface for the Threema gateway service.
 """
 import re
+import binascii
 
 import click
 
@@ -36,14 +37,14 @@ def encrypt(private_key, public_key):
     # Print nonce and message as hex
     nonce, message = e2e.TextMessage(text=text).encrypt(private_key, public_key)
     click.echo()
-    click.echo(nonce)
-    click.echo(message)
+    click.echo(binascii.hexlify(nonce))
+    click.echo(binascii.hexlify(message))
 
 
-@cli.command(short_help='Decrypt a message.', help="""
+@cli.command(short_help='Decrypt a text message.', help="""
 Decrypt standard input using the given recipient PRIVATE KEY and sender PUBLIC KEY.
 The NONCE must be given on the command line, and the box (hex) on standard input.
-Prints the decrypted message to standard output.
+Prints the decrypted text message to standard output.
 """)
 @click.argument('private_key')
 @click.argument('public_key')
@@ -55,6 +56,12 @@ def decrypt(private_key, public_key, nonce):
 
     # Read message from stdin
     message = click.get_text_stream('stdin').read()
+
+    # Convert keys to bytes
+    private_key = binascii.unhexlify(private_key)
+    public_key = binascii.unhexlify(public_key)
+
+    # TODO: Ensure that this is a text message
 
     # Print text
     text_message = e2e.decrypt(private_key, public_key, nonce, message)

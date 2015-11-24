@@ -3,7 +3,9 @@ Utility functions.
 """
 from threema.gateway.key import Key
 
-__all__ = ('read_key_or_key_file',)
+__all__ = (
+    'read_key_or_key_file',
+)
 
 
 def read_key_or_key_file(key, expected_type):

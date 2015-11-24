@@ -6,15 +6,26 @@ import enum
 import random
 import binascii
 import struct
+import mimetypes
 
 import libnacl
 import libnacl.public
 import libnacl.encode
 
-from threema.gateway import MessageError
+from threema.gateway import ReceptionCapability
+from threema.gateway.exception import *
 from threema.gateway.key import Key
 
-__all__ = ('encrypt', 'decrypt', 'Message', 'DeliveryReceipt', 'TextMessage')
+__all__ = (
+    'encrypt',
+    'decrypt',
+    'encrypt_raw',
+    'decrypt_raw',
+    'Message',
+    'DeliveryReceipt',
+    'TextMessage',
+    'ImageMessage',
+)
 
 
 def encrypt(private, public, data):
@@ -26,8 +37,8 @@ def encrypt(private, public, data):
         - `public`: The public key of the recipient.
         - `data`: Message data (bytes).
 
-    Return a tuple of the nonce and the encrypted message. Both
-    values are hex-encoded.
+    Return a tuple of bytes containing the nonce and the encrypted
+    data.
     """
     # Generate 0 < padding < 256
     padding_length = random.randint(1, 255)
@@ -36,14 +47,10 @@ def encrypt(private, public, data):
     padding = bytes([padding_length] * padding_length)
 
     # Assemble and encrypt the payload
-    box = libnacl.public.Box(sk=private, pk=public)
-    nonce, message = box.encrypt(data + padding, pack_nonce=False)
-
-    # Return as hex
-    return binascii.hexlify(nonce), binascii.hexlify(message)
+    return encrypt_raw(private, public, data + padding)
 
 
-def decrypt(private, public, nonce, message):
+def decrypt(private, public, nonce, data):
     """
     Decrypt a message.
 
@@ -56,12 +63,8 @@ def decrypt(private, public, nonce, message):
     Return an instance of either a :class:`DeliveryReceipt` or a
     :class:`TextMessage`.
     """
-    # Un-hexlify
-    nonce, message = binascii.unhexlify(nonce), binascii.unhexlify(message)
-
     # Decrypt payload
-    box = libnacl.public.Box(sk=private, pk=public)
-    payload = box.decrypt(message, nonce)
+    payload = decrypt_raw(private, public, nonce, data)
 
     # Remove padding and type
     type_ = payload[:1]
@@ -76,11 +79,46 @@ def decrypt(private, public, nonce, message):
         return DeliveryReceipt(payload=payload)
 
 
+def encrypt_raw(private, public, data):
+    """
+    Encrypt data.
+
+    Arguments:
+        - `private`: Private key of the sender.
+        - `public`: The public key of the recipient.
+        - `image`: Data (bytes).
+
+    Return a tuple of bytes containing the nonce and the encrypted
+    data.
+    """
+    # Assemble and encrypt the payload
+    box = libnacl.public.Box(sk=private, pk=public)
+    return box.encrypt(data, pack_nonce=False)
+
+
+def decrypt_raw(private, public, nonce, data):
+    """
+    Decrypt data.
+
+    Arguments:
+        - `private`: Private key of the sender.
+        - `public`: The public key of the recipient.
+        - `nonce`: The nonce of the encrypted message.
+        - `data`: Encrypted data (bytes).
+
+    Return the decrypted data.
+    """
+    # Decrypt payload
+    box = libnacl.public.Box(sk=private, pk=public)
+    return box.decrypt(data, nonce)
+
+
 class Message(metaclass=abc.ABCMeta):
     """
     A message class all end-to-end mode messages are derived from.
 
     Attributes:
+        - `type_`: The message type.
         - `connection`: An instance of a connection.
         - `id`: Threema ID of the recipient.
         - `key`: The public key of the recipient. Will be fetched from
@@ -100,10 +138,11 @@ class Message(metaclass=abc.ABCMeta):
         delivery_receipt = b'\x80'
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, connection=None, id=None, key=None, key_file=None):
+    def __init__(self, type_, connection=None, id=None, key=None, key_file=None):
         self._key = None
         self._key_file = None
         self.connection = connection
+        self.type = type_
         self.id = id
         self.key = key
         self.key_file = key_file
@@ -149,6 +188,103 @@ class Message(metaclass=abc.ABCMeta):
         Send a message.
         """
 
+    def _encrypt(self, message, private=None, public=None):
+        """
+        Encrypt a message.
+
+        Arguments:
+            - `message`: Message data (bytes).
+            - `private`: Private key of the sender.
+            - `public`: The public key of the recipient.
+
+        Return a tuple of bytes containing the nonce and the encrypted
+        data.
+        """
+        # Keys specified?
+        if private is None and public is None:
+            private = self.connection.key
+            public = self.key
+
+        # Encrypt
+        return encrypt(private, public, message)
+
+    def _decrypt(self, nonce, data, private=None, public=None):
+        """
+        Decrypt a message.
+
+        Arguments:
+            - `nonce`: The nonce of the encrypted message.
+            - `data`: Encrypted message (bytes).
+            - `private`: Private key of the sender.
+            - `public`: The public key of the recipient.
+
+        Return a tuple of the nonce and the encrypted data.
+        """
+        # Keys specified?
+        if private is None and public is None:
+            private = self.connection.key
+            public = self.key
+
+        # Decrypt
+        return decrypt(private, public, nonce, data)
+
+    def _encrypt_raw(self, data, private=None, public=None):
+        """
+        Encrypt data.
+
+        Arguments:
+            - `data`: Data (bytes).
+            - `private`: Private key of the sender.
+            - `public`: The public key of the recipient.
+
+        Return a tuple of bytes containing the nonce and the encrypted
+        data.
+        """
+        # Keys specified?
+        if private is None and public is None:
+            private = self.connection.key
+            public = self.key
+
+        # Encrypt
+        return encrypt_raw(private, public, data)
+
+    def _decrypt_raw(self, nonce, data, private=None, public=None):
+        """
+        Decrypt data.
+
+        Arguments:
+            - `nonce`: The nonce of the encrypted message.
+            - `data`: Encrypted data (bytes).
+            - `private`: Private key of the sender.
+            - `public`: The public key of the recipient.
+
+        Return a tuple of the nonce and the encrypted data.
+        """
+        # Keys specified?
+        if private is None and public is None:
+            private = self.connection.key
+            public = self.key
+
+        # Decrypt
+        return decrypt_raw(private, public, nonce, data)
+
+    def _check_capabilities(self, required_capabilities):
+        """
+        Test for capabilities of a recipient.
+
+        Arguments:
+            - `required_capabilities`: A set of capabilities that are
+              required.
+
+        Raise :class:`MissingCapabilityError` in case that one or more
+        capabilities are missing.
+        """
+        # Check capabilities of a recipient
+        recipient_capabilities = self.connection.get_reception_capabilities(self.id)
+        if not required_capabilities <= recipient_capabilities:
+            missing_capabilities = required_capabilities - recipient_capabilities
+            raise MissingCapabilityError(missing_capabilities)
+
 
 class DeliveryReceipt(Message):
     """
@@ -164,14 +300,14 @@ class DeliveryReceipt(Message):
     """
 
     @enum.unique
-    class Type(enum.Enum):
+    class ReceiptType(enum.Enum):
         """Describes message receipt types."""
         received = b'\x01'
         read = b'\x02'
         user_ack = b'\x03'
 
     def __init__(self, payload):
-        super(DeliveryReceipt, self).__init__()
+        super().__init__(Message.Type.delivery_receipt)
 
         # Check length
         if len(payload) < 9 or (len(payload) - 1) % 8 != 0:
@@ -179,22 +315,23 @@ class DeliveryReceipt(Message):
 
         # Unpack payload
         type_, *self.ids = struct.unpack('1s' + '8s' * int(len(payload) / 8), payload)
-        self.type = self.Type(type_)
+        self.receipt_type = self.ReceiptType(type_)
 
     def __str__(self):
         ids = (binascii.hexlify(id_).decode('utf-8') for id_ in self.ids)
-        return 'Delivery receipt({}): {}'.format(self.type.name, ', '.join(ids))
+        return 'Delivery receipt({}): {}'.format(self.receipt_type.name, ', '.join(ids))
 
     def send(self):
         """
         Send a delivery receipt.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            'Creating and sending delivery receipts is currently not supported')
 
 
 class TextMessage(Message):
     """
-    A simple text message.
+    A text message.
 
     Arguments for a new message:
         - `connection`: An instance of a connection.
@@ -210,7 +347,7 @@ class TextMessage(Message):
           message.
     """
     def __init__(self, text=None, payload=None, **kwargs):
-        super(TextMessage, self).__init__(**kwargs)
+        super().__init__(Message.Type.text_message, **kwargs)
 
         # Validate arguments
         mode = [argument for argument in (text, payload) if argument is not None]
@@ -219,37 +356,31 @@ class TextMessage(Message):
 
         # Unpack payload or store text
         if payload is not None:
-            self.text = str(payload, encoding='utf-8')
+            self.text = payload.decode('utf-8')
         else:
             self.text = text
 
     def __str__(self):
         return self.text
 
-    def encrypt(self, private_key=None, public_key=None):
+    def encrypt(self, *args, **kwargs):
         """
         Encrypt the text message.
 
         Arguments:
-            - `private_key`: The private key of the sender. Only
+            - `private`: The private key of the sender. Only
               required when there is no :class:`Connection` instance.
-            - `public_key`: The public key of the recipient. Only
+            - `public`: The public key of the recipient. Only
               required when there is no :class:`Connection` instance.
 
         Return a tuple of the nonce and the encrypted message.
         """
         # Pack payload
-        type_ = Message.Type.text_message.value
-        text = bytes(self.text, encoding='utf-8')
-        data = type_ + text
-
-        # Keys specified?
-        if private_key is None and public_key is None:
-            private_key = self.connection.key
-            public_key = self.key
+        text = self.text.encode('utf-8')
+        data = self.type.value + text
 
         # Encrypt
-        return encrypt(private_key, public_key, data)
+        return self._encrypt(data, *args, **kwargs)
 
     def send(self):
         """
@@ -257,20 +388,98 @@ class TextMessage(Message):
 
         Return the ID of the message.
         """
-        # Validate parameters
-        if self.connection is None:
-            raise MessageError('No connection set')
-        if self.id is None:
-            raise MessageError('No recipient specified')
-        if self.text is None:
-            raise MessageError('Message text not specified')
-
         # Encrypt
         nonce, message = self.encrypt()
 
         # Send message
         return self.connection.send_e2e(**{
             'to': self.id,
-            'nonce': nonce,
-            'box': message
+            'nonce': binascii.hexlify(nonce),
+            'box': binascii.hexlify(message)
+        })
+
+
+class ImageMessage(Message):
+    """
+    An image message including a thumbnail.
+
+    Arguments for a new message:
+        - `connection`: An instance of a connection.
+        - `id`: Threema ID of the recipient.
+        - `key`: The public key of the recipient. Will be fetched from
+           the server if not supplied.
+        - `key_file`: A file where the private key is stored in. Can
+          be used instead of passing the key directly.
+        - `image_path`: A file where the image is stored in.
+
+    Arguments for an existing message:
+        - `payload`: The remaining byte sequence of a decrypted
+          message.
+    """
+    allowed_mime_types = {
+        'image/jpg',
+        'image/jpeg',
+        'image/png'
+    }
+
+    required_capabilities = {
+        ReceptionCapability.image
+    }
+
+    def __init__(self, image_path=None, payload=None, **kwargs):
+        super().__init__(Message.Type.image_message, **kwargs)
+
+        # Validate arguments
+        mode = [argument for argument in (image_path, payload) if argument is not None]
+        if len(mode) != 1:
+            raise MessageError("Either 'image_path' or 'payload' need to be specified.")
+
+        # Unpack payload or store image path
+        if payload is not None:
+            self.image = payload
+            self.image_path = None
+            # TODO: Download image, decode thumbnail, set and validate mime type
+            raise NotImplementedError()
+        else:
+            self.image = None
+            self.image_path = image_path
+
+            # Guess the mime type
+            mime_type, _ = mimetypes.guess_type(image_path)
+            if mime_type not in self.allowed_mime_types:
+                raise UnsupportedMimeTypeError(mime_type)
+            self.mime_type = mime_type
+
+    def send(self):
+        """
+        Send the encrypted image message.
+
+        Return the ID of the message.
+        """
+        # Check capabilities of recipient
+        self._check_capabilities(self.required_capabilities)
+
+        # Read the content of the file if not already read
+        if self.image is None:
+            with open(self.image_path, mode='rb') as file:
+                self.image = file.read()
+
+        # Encrypt and upload image
+        image_nonce, image_data = self._encrypt_raw(self.image)
+        blob_id = binascii.unhexlify(self.connection.upload(image_data))
+
+        # Pack payload
+        data = struct.pack(
+            '<1s{}sI{}s'.format(len(blob_id), len(image_nonce)),
+            self.type.value, blob_id, len(image_data), image_nonce
+        )
+
+        # Encrypt
+        nonce, message = self._encrypt(data)
+
+        # Send message
+        return self.connection.send_e2e(**{
+            'to': self.id,
+            'nonce': binascii.hexlify(nonce),
+            'box': binascii.hexlify(message)
         })

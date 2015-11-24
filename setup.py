@@ -31,8 +31,8 @@ setup(
     # PyPI metadata
     author='Lennart Grahl',
     author_email='lennart.grahl@threema.ch',
-    description=('An API for the Threema gateway service to send and receive text'
-                 'messages and delivery receipts.'),
+    description=('An API for the Threema gateway service to send and receive'
+                 'messages including text, images, files and delivery reports.'),
     long_description=long_description,
     license='MIT License',
     keywords='threema gateway service sdk api',

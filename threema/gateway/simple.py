@@ -3,9 +3,12 @@ Provides classes for the simple mode.
 """
 import abc
 
-from threema.gateway import MessageError
+from threema.gateway.exception import MessageError
 
-__all__ = ('Message', 'TextMessage')
+__all__ = (
+    'Message',
+    'TextMessage',
+)
 
 
 class Message(metaclass=abc.ABCMeta):
@@ -40,7 +43,7 @@ class TextMessage(Message):
         - `text`: Message text.
     """
     def __init__(self, phone=None, email=None, text=None, **kwargs):
-        super(TextMessage, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.phone = phone
         self.email = email
         self.text = text

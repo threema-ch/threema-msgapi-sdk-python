@@ -8,7 +8,10 @@ import hmac
 import libnacl.public
 import libnacl.encode
 
-__all__ = ('HMAC', 'Key')
+__all__ = (
+    'HMAC',
+    'Key',
+)
 
 
 class HMAC:
