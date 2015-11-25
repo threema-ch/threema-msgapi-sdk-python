@@ -132,8 +132,8 @@ def sk_encrypt_raw(key, data, nonce=None):
     # Assemble and encrypt the payload
     box = libnacl.secret.SecretBox(key=key)
     # Note: Workaround for libnacl which lacks `pack_nonce` option
-    # (see: )
-    #return box.encrypt(data, nonce=nonce, pack_nonce=False)
+    # (see: https://github.com/saltstack/libnacl/pull/61)
+    # return box.encrypt(data, nonce=nonce, pack_nonce=False)
     data = box.encrypt(data, nonce=nonce)
     nonce_length = libnacl.crypto_secretbox_NONCEBYTES
     return data[:nonce_length], data[nonce_length:]
