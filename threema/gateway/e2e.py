@@ -30,14 +30,15 @@ __all__ = (
 )
 
 
-def encrypt(private, public, data):
+def encrypt(private, public, data, nonce=None):
     """
-    Encrypt a message.
+    Encrypt a message by using public-key encryption.
 
     Arguments:
         - `private`: Private key of the sender.
         - `public`: The public key of the recipient.
         - `data`: Message data (bytes).
+        - `nonce`: A predefined nonce.
 
     Return a tuple of bytes containing the nonce and the encrypted
     data.
@@ -49,12 +50,12 @@ def encrypt(private, public, data):
     padding = bytes([padding_length] * padding_length)
 
     # Assemble and encrypt the payload
-    return pk_encrypt_raw(private, public, data + padding)
+    return pk_encrypt_raw(private, public, data + padding, nonce=nonce)
 
 
 def decrypt(private, public, nonce, data):
     """
-    Decrypt a message.
+    Decrypt a message by using public-key decryption.
 
     Arguments:
         - `private`: Private key of the sender.
@@ -81,26 +82,27 @@ def decrypt(private, public, nonce, data):
         return DeliveryReceipt(payload=payload)
 
 
-def pk_encrypt_raw(private, public, data):
+def pk_encrypt_raw(private, public, data, nonce=None):
     """
-    Encrypt data.
+    Encrypt data by using public-key encryption.
 
     Arguments:
         - `private`: Private key of the sender.
         - `public`: The public key of the recipient.
-        - `image`: Data (bytes).
+        - `data`: Data (bytes).
+        - `nonce`: A predefined nonce.
 
     Return a tuple of bytes containing the nonce and the encrypted
     data.
     """
     # Assemble and encrypt the payload
     box = libnacl.public.Box(sk=private, pk=public)
-    return box.encrypt(data, pack_nonce=False)
+    return box.encrypt(data, nonce=nonce, pack_nonce=False)
 
 
 def pk_decrypt_raw(private, public, nonce, data):
     """
-    Decrypt data.
+    Decrypt data by using public-key decryption.
 
     Arguments:
         - `private`: Private key of the sender.
@@ -112,7 +114,45 @@ def pk_decrypt_raw(private, public, nonce, data):
     """
     # Decrypt payload
     box = libnacl.public.Box(sk=private, pk=public)
-    return box.decrypt(data, nonce)
+    return box.decrypt(data, nonce=nonce)
+
+
+def sk_encrypt_raw(key, data, nonce=None):
+    """
+    Encrypt data by using secret-key encryption.
+
+    Arguments:
+        - `key`: The secret key.
+        - `data`: Data (bytes).
+        - `nonce`: A predefined nonce.
+
+    Return a tuple of bytes containing the nonce and the encrypted
+    data.
+    """
+    # Assemble and encrypt the payload
+    box = libnacl.secret.SecretBox(key=key)
+    # Note: Workaround for libnacl which lacks `pack_nonce` option
+    # (see: )
+    #return box.encrypt(data, nonce=nonce, pack_nonce=False)
+    data = box.encrypt(data, nonce=nonce)
+    nonce_length = libnacl.crypto_secretbox_NONCEBYTES
+    return data[:nonce_length], data[nonce_length:]
+
+
+def sk_decrypt_raw(key, nonce, data):
+    """
+    Decrypt data by using secret-key decryption.
+
+    Arguments:
+        - `key`: The secret key.
+        - `nonce`: The nonce of the encrypted message.
+        - `data`: Encrypted data (bytes).
+
+    Return the decrypted data.
+    """
+    # Decrypt payload
+    box = libnacl.secret.SecretBox(key=key)
+    return box.decrypt(data, nonce=nonce)
 
 
 class Message(metaclass=abc.ABCMeta):
@@ -558,15 +598,17 @@ class FileMessage(Message):
             with open(self.file_path, mode='rb') as file:
                 self.file_content = file.read()
 
+        # Create symmetric key
+        key, hex_key = Key.generate_secret_key()
+
         # Encrypt and upload file
-        box = libnacl.secret.SecretBox()
-        file_data = box.encrypt(self.file_content, nonce=self.nonce['file'])
+        _, file_data = sk_encrypt_raw(key, self.file_content, nonce=self.nonce['file'])
         file_id = self.connection.upload(file_data)
 
         # Build JSON
         content = {
             'b': file_id,
-            'k': box.hex_sk().decode('utf-8'),
+            'k': hex_key.decode('utf-8'),
             'm': self.mime_type,
             'n': os.path.basename(self.file_path),
             's': len(self.file_content),
@@ -581,8 +623,8 @@ class FileMessage(Message):
                     self.thumbnail_content = file.read()
 
             # Encrypt and upload thumbnail
-            thumbnail_data = box.encrypt(self.thumbnail_content,
-                                         nonce=self.nonce['thumbnail'])
+            _, thumbnail_data = sk_encrypt_raw(key, self.thumbnail_content,
+                                               nonce=self.nonce['thumbnail'])
             thumbnail_id = self.connection.upload(thumbnail_data)
 
             # Update JSON

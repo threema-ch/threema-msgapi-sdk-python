@@ -6,6 +6,7 @@ import hashlib
 import hmac
 
 import libnacl.public
+import libnacl.secret
 import libnacl.encode
 
 __all__ = (
@@ -126,6 +127,17 @@ class Key:
         private_key = libnacl.public.SecretKey()
         public_key = libnacl.public.PublicKey(private_key.pk)
         return private_key, public_key
+
+    @staticmethod
+    def generate_secret_key():
+        """
+        Generate a new secret key box.
+
+        Return a tuple of the key's :class:`bytes` and hex-encoded
+        representation.
+        """
+        box = libnacl.secret.SecretBox()
+        return box.sk, box.hex_sk()
 
     @staticmethod
     def derive_public(private_key):
