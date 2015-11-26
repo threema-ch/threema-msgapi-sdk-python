@@ -54,17 +54,17 @@ def decrypt(private_key, public_key, nonce):
     private_key = util.read_key_or_key_file(private_key, Key.Type.private)
     public_key = util.read_key_or_key_file(public_key, Key.Type.public)
 
-    # Read message from stdin
-    message = click.get_text_stream('stdin').read()
+    # Convert nonce to bytes
+    nonce = binascii.unhexlify(nonce)
 
-    # Convert keys to bytes
-    private_key = binascii.unhexlify(private_key)
-    public_key = binascii.unhexlify(public_key)
+    # Read message from stdin and convert to bytes
+    message = click.get_text_stream('stdin').read()
+    message = binascii.unhexlify(message)
 
     # TODO: Ensure that this is a text message
 
     # Print text
-    text_message = e2e.decrypt(private_key, public_key, nonce, message)
+    text_message = e2e.decrypt(private_key.sk, public_key.pk, nonce, message)
     click.echo()
     click.echo(text_message)
 
@@ -165,7 +165,6 @@ Prints the message ID on success.
 The public key of the recipient. Will be fetched automatically if not provided.
 """)
 def send_e2e(**arguments):
-    print(arguments)
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
     if arguments['public_key'] is not None:
@@ -234,7 +233,6 @@ def send_image(**arguments):
     )
 
     # Send message
-    click.echo()
     click.echo(message.send())
 
 
@@ -280,7 +278,6 @@ def send_file(**arguments):
     )
 
     # Send message
-    click.echo()
     click.echo(message.send())
 
 

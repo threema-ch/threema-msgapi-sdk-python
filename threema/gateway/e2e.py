@@ -507,8 +507,11 @@ class ImageMessage(Message):
 
         # Read the content of the file if not already read
         if self.image is None:
-            with open(self.image_path, mode='rb') as file:
-                self.image = file.read()
+            try:
+                with open(self.image_path, mode='rb') as file:
+                    self.image = file.read()
+            except OSError as exc:
+                raise MessageError('Fetching content of image failed') from exc
 
         # Encrypt and upload image
         image_nonce, image_data = self._pk_encrypt_raw(self.image)
@@ -595,8 +598,11 @@ class FileMessage(Message):
 
         # Read the content of the file if not already read
         if self.file_content is None:
-            with open(self.file_path, mode='rb') as file:
-                self.file_content = file.read()
+            try:
+                with open(self.file_path, mode='rb') as file:
+                    self.file_content = file.read()
+            except OSError as exc:
+                raise MessageError('Fetching content of file failed') from exc
 
         # Create symmetric key
         key, hex_key = Key.generate_secret_key()
@@ -619,8 +625,11 @@ class FileMessage(Message):
         if self.thumbnail_path is not None:
             # Read the content of the thumbnail file if not already read
             if self.thumbnail_content is None:
-                with open(self.thumbnail_path, mode='rb') as file:
-                    self.thumbnail_content = file.read()
+                try:
+                    with open(self.thumbnail_path, mode='rb') as file:
+                        self.thumbnail_content = file.read()
+                except OSError as exc:
+                    raise MessageError('Fetching content of thumbnail failed') from exc
 
             # Encrypt and upload thumbnail
             _, thumbnail_data = sk_encrypt_raw(key, self.thumbnail_content,
