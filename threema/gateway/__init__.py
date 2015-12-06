@@ -33,7 +33,7 @@ from threema.gateway.key import Key
 
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
-__version__ = '1.1.3'
+__version__ = '1.1.4'
 __all__ = (
     'ReceptionCapability',
     'Connection',
@@ -82,6 +82,7 @@ class Connection:
     }
 
     def __init__(self, id, secret, key=None, key_file=None):
+        self._session = requests.Session()
         self._key = None
         self._key_file = None
         self.id = id
@@ -264,7 +265,7 @@ class Connection:
         kwargs.setdefault('params', {})
         kwargs['params'].setdefault('from', self.id)
         kwargs['params'].setdefault('secret', self.secret)
-        return requests.get(*args, **kwargs)
+        return self._session.get(*args, **kwargs)
 
     def _send(self, url, data):
         """
@@ -281,7 +282,7 @@ class Connection:
         data.setdefault('secret', self.secret)
 
         # Send message
-        response = requests.post(url, data=data)
+        response = self._session.post(url, data=data)
         if response.status_code == 200:
             return response.text
         else:
@@ -303,7 +304,7 @@ class Connection:
         files = {'blob': data}
 
         # Send message
-        response = requests.post(url, params=params, files=files)
+        response = self._session.post(url, params=params, files=files)
         if response.status_code == 200:
             return response.text
         else:
