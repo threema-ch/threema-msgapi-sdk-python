@@ -3,6 +3,7 @@ The tests provided in this module have been tested for compliance with
 the Threema Gateway server. Obviously, the simulated server does not
 completely mimic the behaviour of the Gateway server.
 """
+import binascii
 import asyncio
 
 import pytest
@@ -11,10 +12,11 @@ from aiohttp import web
 from aiohttp.web_urldispatcher import UrlDispatcher
 
 from threema.gateway.exception import *
-from threema.gateway import simple, ReceptionCapability
+from threema.gateway import simple, e2e, ReceptionCapability
 
 
 _echoecho_key = b'4a6a1b34dcef15d43cb74de2fd36091be99fbbaf126d099d47d83d919712c72b'
+_echoecho_encoded_key = 'public:' + _echoecho_key.decode()
 
 
 @asyncio.coroutine
@@ -87,7 +89,7 @@ def capabilities(request):
     if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
         return web.Response(status=401)
     elif id_ == 'ECHOECHO':
-        return web.Response(body=b'text,image,video')
+        return web.Response(body=b'text,image,video,file')
     return web.Response(status=404)
 
 
@@ -127,6 +129,31 @@ def send_simple(request):
     return web.Response(body=b'0' * 16)
 
 
+@asyncio.coroutine
+def send_e2e(request):
+    post = (yield from request.post())
+
+    # Check API identity
+    if (post['from'], post['secret']) not in pytest.msgapi.api_identities:
+        return web.Response(status=401)
+
+    # Get ID, nonce and box
+    id_ = post['to']
+    nonce, box = binascii.unhexlify(post['nonce']), binascii.unhexlify(post['box'])
+
+    # Process
+    if post['from'] == pytest.msgapi.nocredit_id:
+        return web.Response(status=402)
+    elif id_ != 'ECHOECHO':
+        return web.Response(status=400)
+    elif len(nonce) != 24:
+        # Note: This status code might not be intended and may change in the future
+        return web.Response(status=400)
+    elif len(box) > 4000:
+        return web.Response(status=413)
+    return web.Response(body=b'1' * 16)
+
+
 router = UrlDispatcher()
 router.add_route('GET', '/pubkeys/{key}', pubkeys)
 router.add_route('GET', '/lookup/phone/{phone}', lookup_phone)
@@ -136,6 +163,27 @@ router.add_route('GET', '/lookup/email_hash/{email_hash}', lookup_email_hash)
 router.add_route('GET', '/capabilities/{id}', capabilities)
 router.add_route('GET', '/credits', credits)
 router.add_route('POST', '/send_simple', send_simple)
+router.add_route('POST', '/send_e2e', send_e2e)
+
+
+class RawMessage(e2e.Message):
+    def __init__(self, nonce=None, message=None, **kwargs):
+        super().__init__(e2e.Message.Type.text_message, **kwargs)
+        self.nonce = nonce
+        self.message = message
+
+    def send(self):
+        """
+        Send the raw message
+
+        Return the ID of the message.
+        """
+        # Send message
+        return self.connection.send_e2e(**{
+            'to': self.id,
+            'nonce': binascii.hexlify(self.nonce),
+            'box': binascii.hexlify(self.message)
+        })
 
 
 class TestLookupPublicKey:
@@ -294,7 +342,8 @@ class TestReceptionCapabilities:
         assert key == {
             ReceptionCapability.text,
             ReceptionCapability.image,
-            ReceptionCapability.video
+            ReceptionCapability.video,
+            ReceptionCapability.file
         }
 
 
@@ -386,3 +435,71 @@ class TestSendSimple:
             text='Hello'
         ).send()
         assert id_ == '0' * 16
+
+
+class TestSendE2E:
+    def test_invalid_identity(self, invalid_connection):
+        with pytest.raises(MessageServerError) as exc_info:
+            e2e.TextMessage(
+                connection=invalid_connection,
+                id='ECHOECHO',
+                key=_echoecho_encoded_key,
+                text='Hello'
+            ).send()
+        assert exc_info.value.response.status_code == 401
+
+    def test_insufficient_credits(self, nocredit_connection):
+        with pytest.raises(MessageServerError) as exc_info:
+            e2e.TextMessage(
+                connection=nocredit_connection,
+                id='ECHOECHO',
+                key=_echoecho_encoded_key,
+                text='Hello'
+            ).send()
+        assert exc_info.value.response.status_code == 402
+
+    def test_message_too_long(self, connection):
+        with pytest.raises(MessageServerError) as exc_info:
+            RawMessage(
+                connection=connection,
+                id='ECHOECHO',
+                nonce=b'0' * 24,
+                message=b'1' * 4001
+            ).send()
+        assert exc_info.value.response.status_code == 413
+
+    def test_unknown_id(self, connection):
+        with pytest.raises(MessageServerError) as exc_info:
+            e2e.TextMessage(
+                connection=connection,
+                id='00000000',
+                key=_echoecho_encoded_key,
+                text='Hello'
+            ).send()
+        assert exc_info.value.response.status_code == 400
+
+    def test_raw(self, connection):
+        id_ = RawMessage(
+            connection=connection,
+            id='ECHOECHO',
+            nonce=b'0' * 24,
+            message=b'1' * 4000
+        ).send()
+        assert id_ == '1' * 16
+
+    def test_via_id(self, connection):
+        id_ = e2e.TextMessage(
+            connection=connection,
+            id='ECHOECHO',
+            text='Hello'
+        ).send()
+        assert id_ == '1' * 16
+
+    def test_via_id_and_key(self, connection):
+        id_ = e2e.TextMessage(
+            connection=connection,
+            id='ECHOECHO',
+            key=_echoecho_encoded_key,
+            text='Hello'
+        ).send()
+        assert id_ == '1' * 16

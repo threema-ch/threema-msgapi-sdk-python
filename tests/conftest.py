@@ -18,6 +18,7 @@ def pytest_namespace():
         'ip': '127.0.0.1',
         'id': '*MOCKING',
         'secret': 'mock',
+        'key': 'private:dd9413d597092b004fedc4895db978425efa328ba1f1ec6729e46e09231b8a7e',
         'nocredit_id': 'NOCREDIT',
         'noexist_id': '*NOEXIST',
     }}
@@ -111,7 +112,11 @@ def mock_url(port):
 def connection(server, mock_url):
     # Note: We're not doing anything with the server but obviously the
     # server needs to be started to be able to connect
-    connection_ = threema.gateway.Connection(pytest.msgapi.id, pytest.msgapi.secret)
+    connection_ = threema.gateway.Connection(
+        id=pytest.msgapi.id,
+        secret=pytest.msgapi.secret,
+        key=pytest.msgapi.key
+    )
 
     # Patch URLs
     connection_.urls = {key: value.replace(pytest.msgapi.base_url, mock_url)
