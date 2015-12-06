@@ -23,7 +23,12 @@ setup(
     install_requires=[
         'libnacl>=1.4.1',
         'requests>=2.2.1',
-        'click>=3.3'
+        'click>=3.3',
+    ],
+    tests_require=[
+        'pytest>=2.7.2',
+        'aiohttp>=0.19.0',
+        'asyncio>=3.4.3',
     ],
     include_package_data=True,
 
