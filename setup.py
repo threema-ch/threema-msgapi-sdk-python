@@ -1,3 +1,4 @@
+import ast
 import os
 
 from setuptools import setup, find_packages
@@ -8,7 +9,8 @@ def get_version():
     with open(path) as file:
         for line in file:
             if line.startswith('__version__'):
-                return eval(line.split('=')[-1])
+                _, value = line.split('=', maxsplit=1)
+                return ast.literal_eval(value.strip())
 
 # Allow setup.py to be run from any path
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
