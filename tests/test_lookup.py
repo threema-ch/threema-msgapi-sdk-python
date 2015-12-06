@@ -11,7 +11,7 @@ from aiohttp import web
 from aiohttp.web_urldispatcher import UrlDispatcher
 
 from threema.gateway.exception import *
-from threema.gateway import ReceptionCapability
+from threema.gateway import simple, ReceptionCapability
 
 
 _echoecho_key = b'4a6a1b34dcef15d43cb74de2fd36091be99fbbaf126d099d47d83d919712c72b'
@@ -20,7 +20,7 @@ _echoecho_key = b'4a6a1b34dcef15d43cb74de2fd36091be99fbbaf126d099d47d83d919712c7
 @asyncio.coroutine
 def pubkeys(request):
     key = request.match_info['key']
-    if (request.GET['from'], request.GET['secret']) != pytest.msgapi.api_identity:
+    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
         return web.Response(status=401)
     elif len(key) != 8:
         return web.Response(status=404)
@@ -32,7 +32,7 @@ def pubkeys(request):
 @asyncio.coroutine
 def lookup_phone(request):
     phone = request.match_info['phone']
-    if (request.GET['from'], request.GET['secret']) != pytest.msgapi.api_identity:
+    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
         return web.Response(status=401)
     elif not phone.isdigit():
         return web.Response(status=404)
@@ -44,7 +44,7 @@ def lookup_phone(request):
 @asyncio.coroutine
 def lookup_phone_hash(request):
     phone_hash = request.match_info['phone_hash']
-    if (request.GET['from'], request.GET['secret']) != pytest.msgapi.api_identity:
+    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
         return web.Response(status=401)
     elif len(phone_hash) % 2 != 0:
         # Note: This status code might not be intended and may change in the future
@@ -59,7 +59,7 @@ def lookup_phone_hash(request):
 @asyncio.coroutine
 def lookup_email(request):
     email = request.match_info['email']
-    if (request.GET['from'], request.GET['secret']) != pytest.msgapi.api_identity:
+    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
         return web.Response(status=401)
     elif email == 'echoecho@example.com':
         return web.Response(body=b'ECHOECHO')
@@ -69,7 +69,7 @@ def lookup_email(request):
 @asyncio.coroutine
 def lookup_email_hash(request):
     email_hash = request.match_info['email_hash']
-    if (request.GET['from'], request.GET['secret']) != pytest.msgapi.api_identity:
+    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
         return web.Response(status=401)
     elif len(email_hash) % 2 != 0:
         # Note: This status code might not be intended and may change in the future
@@ -84,7 +84,7 @@ def lookup_email_hash(request):
 @asyncio.coroutine
 def capabilities(request):
     id_ = request.match_info['id']
-    if (request.GET['from'], request.GET['secret']) != pytest.msgapi.api_identity:
+    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
         return web.Response(status=401)
     elif id_ == 'ECHOECHO':
         return web.Response(body=b'text,image,video')
@@ -93,9 +93,38 @@ def capabilities(request):
 
 @asyncio.coroutine
 def credits(request):
-    if (request.GET['from'], request.GET['secret']) != pytest.msgapi.api_identity:
+    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
         return web.Response(status=401)
     return web.Response(body=b'100')
+
+
+@asyncio.coroutine
+def send_simple(request):
+    post = (yield from request.post())
+
+    # Check API identity
+    if (post['from'], post['secret']) not in pytest.msgapi.api_identities:
+        return web.Response(status=401)
+
+    # Get ID from to, email or phone
+    if 'to' in post:
+        id_ = post['to']
+    elif post.get('email', None) == 'echoecho@example.com':
+        id_ = 'ECHOECHO'
+    elif post.get('phone', None) == '44123456789':
+        id_ = 'ECHOECHO'
+    else:
+        return web.Response(status=404)
+
+    # Process
+    text = post['text']
+    if post['from'] == pytest.msgapi.nocredit_id:
+        return web.Response(status=402)
+    elif id_ != 'ECHOECHO':
+        return web.Response(status=400)
+    elif len(text) > 3500:
+        return web.Response(status=413)
+    return web.Response(body=b'0' * 16)
 
 
 router = UrlDispatcher()
@@ -106,6 +135,7 @@ router.add_route('GET', '/lookup/email/{email}', lookup_email)
 router.add_route('GET', '/lookup/email_hash/{email_hash}', lookup_email_hash)
 router.add_route('GET', '/capabilities/{id}', capabilities)
 router.add_route('GET', '/credits', credits)
+router.add_route('POST', '/send_simple', send_simple)
 
 
 class TestLookupPublicKey:
@@ -276,3 +306,83 @@ class TestCredits:
 
     def test_valid(self, connection):
         assert connection.get_credits() == 100
+
+
+class TestSendSimple:
+    def test_invalid_identity(self, invalid_connection):
+        with pytest.raises(MessageServerError) as exc_info:
+            simple.TextMessage(
+                connection=invalid_connection,
+                id='ECHOECHO',
+                text='Hello'
+            ).send()
+        assert exc_info.value.response.status_code == 401
+
+    def test_insufficient_credits(self, nocredit_connection):
+        with pytest.raises(MessageServerError) as exc_info:
+            simple.TextMessage(
+                connection=nocredit_connection,
+                id='ECHOECHO',
+                text='Hello'
+            ).send()
+        assert exc_info.value.response.status_code == 402
+
+    def test_message_too_long(self, connection):
+        with pytest.raises(MessageServerError) as exc_info:
+            simple.TextMessage(
+                connection=connection,
+                id='ECHOECHO',
+                text='0' * 3501
+            ).send()
+        assert exc_info.value.response.status_code == 413
+
+    def test_unknown_id(self, connection):
+        with pytest.raises(MessageServerError) as exc_info:
+            simple.TextMessage(
+                connection=connection,
+                id='00000000',
+                text='Hello'
+            ).send()
+        assert exc_info.value.response.status_code == 400
+
+    def test_unknown_email(self, connection):
+        with pytest.raises(MessageServerError) as exc_info:
+            simple.TextMessage(
+                connection=connection,
+                email='somemail@example.com',
+                text='Hello'
+            ).send()
+        assert exc_info.value.response.status_code == 404
+
+    def test_unknown_phone(self, connection):
+        with pytest.raises(MessageServerError) as exc_info:
+            simple.TextMessage(
+                connection=connection,
+                phone='44987654321',
+                text='Hello'
+            ).send()
+        assert exc_info.value.response.status_code == 404
+
+    def test_via_id(self, connection):
+        id_ = simple.TextMessage(
+            connection=connection,
+            id='ECHOECHO',
+            text='0' * 3500
+        ).send()
+        assert id_ == '0' * 16
+
+    def test_via_email(self, connection):
+        id_ = simple.TextMessage(
+            connection=connection,
+            email='echoecho@example.com',
+            text='Hello'
+        ).send()
+        assert id_ == '0' * 16
+
+    def test_via_phone(self, connection):
+        id_ = simple.TextMessage(
+            connection=connection,
+            phone='44123456789',
+            text='Hello'
+        ).send()
+        assert id_ == '0' * 16

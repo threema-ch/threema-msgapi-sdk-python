@@ -18,9 +18,13 @@ def pytest_namespace():
         'ip': '127.0.0.1',
         'id': '*MOCKING',
         'secret': 'mock',
+        'nocredit_id': 'NOCREDIT',
+        'noexist_id': '*NOEXIST',
     }}
-    api_identity = (values['msgapi']['id'], values['msgapi']['secret'])
-    values['msgapi']['api_identity'] = api_identity
+    values['msgapi']['api_identities'] = {
+        (values['msgapi']['id'], values['msgapi']['secret']),
+        (values['msgapi']['nocredit_id'], values['msgapi']['secret'])
+    }
     return values
 
 
@@ -118,6 +122,12 @@ def connection(server, mock_url):
 @pytest.fixture(scope='module')
 def invalid_connection(connection):
     invalid_connection_ = copy.deepcopy(connection)
-    invalid_connection_.id = '*NOEXIST'
-    invalid_connection_.secret = 'nomock'
+    invalid_connection_.id = pytest.msgapi.noexist_id
     return invalid_connection_
+
+
+@pytest.fixture(scope='module')
+def nocredit_connection(connection):
+    nocredit_connection_ = copy.deepcopy(connection)
+    nocredit_connection_.id = pytest.msgapi.nocredit_id
+    return nocredit_connection_
