@@ -33,7 +33,7 @@ from threema.gateway.key import Key
 
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
-__version__ = '1.1.4'
+__version__ = '1.1.5'
 __all__ = (
     'ReceptionCapability',
     'Connection',
@@ -203,7 +203,7 @@ class Connection:
         """
         response = self._get(self.urls['get_credits'])
         if response.status_code == 200:
-            return response.text
+            return int(response.text)
         else:
             raise CreditsServerError(response)
 
