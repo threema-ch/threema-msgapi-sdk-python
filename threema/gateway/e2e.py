@@ -450,8 +450,8 @@ class TextMessage(Message):
         # Send message
         return (yield from self.connection.send_e2e(**{
             'to': self.id,
-            'nonce': binascii.hexlify(nonce),
-            'box': binascii.hexlify(message)
+            'nonce': binascii.hexlify(nonce).decode(),
+            'box': binascii.hexlify(message).decode()
         }))
 
 
@@ -540,8 +540,8 @@ class ImageMessage(Message):
         # Send message
         return (yield from self.connection.send_e2e(**{
             'to': self.id,
-            'nonce': binascii.hexlify(nonce),
-            'box': binascii.hexlify(message)
+            'nonce': binascii.hexlify(nonce).decode(),
+            'box': binascii.hexlify(message).decode()
         }))
 
 
@@ -661,6 +661,6 @@ class FileMessage(Message):
         # Send message
         return (yield from self.connection.send_e2e(**{
             'to': self.id,
-            'nonce': binascii.hexlify(nonce),
-            'box': binascii.hexlify(message)
+            'nonce': binascii.hexlify(nonce).decode(),
+            'box': binascii.hexlify(message).decode()
         }))

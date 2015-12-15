@@ -246,9 +246,16 @@ class RawMessage(e2e.Message):
         # Send message
         return (yield from self.connection.send_e2e(**{
             'to': self.id,
-            'nonce': binascii.hexlify(self.nonce),
-            'box': binascii.hexlify(self.message)
+            'nonce': binascii.hexlify(self.nonce).decode(),
+            'box': binascii.hexlify(self.message).decode()
         }))
+
+
+@asyncio.coroutine
+def get_latest_blob_ids(connection):
+    blobs = [(yield from (yield from connection.download(blob_id)).read())
+             for blob_id in _latest_blob_ids]
+    return blobs
 
 
 class TestLookupPublicKey:
@@ -696,8 +703,7 @@ class TestSendE2E:
         ).send()
         assert id_ == '1' * 16
         assert len(_latest_blob_ids) == 1
-        assert all(((yield from (yield from connection.download(blob_id)).read())
-                    for blob_id in _latest_blob_ids))
+        assert all((yield from get_latest_blob_ids(connection)))
 
     @pytest.mark.asyncio
     def test_file(self, connection):
@@ -711,8 +717,7 @@ class TestSendE2E:
         ).send()
         assert id_ == '1' * 16
         assert len(_latest_blob_ids) == 1
-        assert all(((yield from (yield from connection.download(blob_id)).read())
-                    for blob_id in _latest_blob_ids))
+        assert all((yield from get_latest_blob_ids(connection)))
 
     @pytest.mark.asyncio
     def test_file_with_thumbnail(self, connection):
@@ -727,5 +732,4 @@ class TestSendE2E:
         ).send()
         assert id_ == '1' * 16
         assert len(_latest_blob_ids) == 2
-        assert all(((yield from (yield from connection.download(blob_id)).read())
-                    for blob_id in _latest_blob_ids))
+        assert all((yield from get_latest_blob_ids(connection)))
