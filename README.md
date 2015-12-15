@@ -62,11 +62,11 @@ $ ./threema-gateway --help
 
 ## Feature Levels
 
-| **Level** | **Text** | **Capabilities** | **Image** | **File** | **Credits** |
-|-----------|----------|------------------|-----------|----------|-------------|
-| 1         | X        |                  |           |          |             |
-| 2         | X        | X                | X         | X        |             |
-| 3         | X        | X                | X         | X        | X           |
+| Level | Text | Capabilities | Image | File | Credits |
+|-------|------|--------------|-------|------|---------|
+| 1     | X    |              |       |      |         |
+| 2     | X    | X            | X     | X    |         |
+| 3     | X    | X            | X     | X    | X       |
 
 You can see the implemented feature level by invoking the following command:
 
