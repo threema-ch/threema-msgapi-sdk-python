@@ -65,6 +65,10 @@ class Connection:
     secret. Can be applied to multiple messages for both simple and
     end-to-end mode.
 
+    You should either use the `with` statement on this class or call
+    :func:`~Connection.close` after you are done querying the Threema
+    Gateway Service API.
+
     Arguments:
         - `id`: Threema ID of the sender.
         - `secret`: Threema Gateway secret.
@@ -100,6 +104,12 @@ class Connection:
         return self
 
     def __exit__(self, *_):
+        self.close()
+
+    def close(self):
+        """
+        Close the underlying :class:`aiohttp.ClientSession`.
+        """
         self._session.close()
 
     @property

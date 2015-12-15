@@ -90,7 +90,7 @@ def mock_url(port):
 
 
 @pytest.fixture(scope='module')
-def connection(server, mock_url):
+def connection(request, server, mock_url):
     # Note: We're not doing anything with the server but obviously the
     # server needs to be started to be able to connect
     connection_ = threema.gateway.Connection(
@@ -102,6 +102,11 @@ def connection(server, mock_url):
     # Patch URLs
     connection_.urls = {key: value.replace(pytest.msgapi.base_url, mock_url)
                         for key, value in connection_.urls.items()}
+
+    def fin():
+        connection_.close()
+
+    request.addfinalizer(fin)
     return connection_
 
 
