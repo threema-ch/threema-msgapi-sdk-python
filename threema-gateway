@@ -163,18 +163,17 @@ def send_simple(**arguments):
     text = click.get_text_stream('stdin').read().strip()
 
     # Create connection
-    connection = Connection(arguments['from'], arguments['secret'])
+    with Connection(arguments['from'], arguments['secret']) as connection:
+        # Create message
+        message = simple.TextMessage(
+            connection=connection,
+            id=arguments['to'],
+            text=text
+        )
 
-    # Create message
-    message = simple.TextMessage(
-        connection=connection,
-        id=arguments['to'],
-        text=text
-    )
-
-    # Send message
-    click.echo()
-    click.echo((yield from message.send()))
+        # Send message
+        click.echo()
+        click.echo((yield from message.send()))
 
 
 @cli.command(short_help='Send a text message using end-to-end mode.', help="""
@@ -208,17 +207,18 @@ def send_e2e(**arguments):
         key=private_key
     )
 
-    # Create message
-    message = e2e.TextMessage(
-        connection=connection,
-        id=arguments['to'],
-        key=public_key,
-        text=text
-    )
+    with connection:
+        # Create message
+        message = e2e.TextMessage(
+            connection=connection,
+            id=arguments['to'],
+            key=public_key,
+            text=text
+        )
 
-    # Send message
-    click.echo()
-    click.echo((yield from message.send()))
+        # Send message
+        click.echo()
+        click.echo((yield from message.send()))
 
 
 @cli.command(short_help='Send an image using end-to-end mode.', help="""
@@ -330,13 +330,14 @@ def lookup(**arguments):
         error = 'Please specify exactly one ID, one email address or one phone number.'
         raise click.ClickException(error)
 
-    # Create connection and do lookup
-    connection = Connection(arguments['from'], secret=arguments['secret'])
-    if 'id' in mode:
-        public_key = (yield from connection.get_public_key(arguments['id']))
-        click.echo(Key.encode(public_key))
-    else:
-        click.echo((yield from connection.get_id(**mode)))
+    # Create connection
+    with Connection(arguments['from'], secret=arguments['secret']) as connection:
+        # Do lookup
+        if 'id' in mode:
+            public_key = yield from connection.get_public_key(arguments['id'])
+            click.echo(Key.encode(public_key))
+        else:
+            click.echo((yield from connection.get_id(**mode)))
 
 
 @cli.command(short_help='Lookup the reception capabilities of a Threema ID', help="""
@@ -350,11 +351,11 @@ Prints a set of capabilities in alphabetical order on success.
 @aio_run
 def capabilities(**arguments):
     # Create connection
-    connection = Connection(arguments['from'], arguments['secret'])
-
-    # Lookup and format returned capabilities
-    capabilities_ = (yield from connection.get_reception_capabilities(arguments['id']))
-    click.echo(', '.join(sorted(capability.value for capability in capabilities_)))
+    with Connection(arguments['from'], arguments['secret']) as connection:
+        # Lookup and format returned capabilities
+        coroutine = connection.get_reception_capabilities(arguments['id'])
+        capabilities_ = yield from coroutine
+        click.echo(', '.join(sorted(capability.value for capability in capabilities_)))
 
 
 # noinspection PyShadowingBuiltins
@@ -367,10 +368,9 @@ FROM is the API identity and SECRET is the API secret.
 @aio_run
 def credits(**arguments):
     # Create connection
-    connection = Connection(arguments['from'], arguments['secret'])
-
-    # Get and print credits
-    click.echo((yield from connection.get_credits()))
+    with Connection(arguments['from'], arguments['secret']) as connection:
+        # Get and print credits
+        click.echo((yield from connection.get_credits()))
 
 
 if __name__ == '__main__':
