@@ -65,39 +65,20 @@ def server(request, event_loop, port):
     router = getattr(request.module, 'router')
     app = web.Application(loop=event_loop, router=router)
     handler = app.make_handler()
-    ready = threading.Event()
 
-    def _loop_thread(event_loop, port):
-        # Set up server
-        asyncio.set_event_loop(event_loop)
-        coroutine = event_loop.create_server(handler, host=pytest.msgapi.ip, port=port)
-        task = event_loop.create_task(coroutine)
-        event_loop.run_until_complete(task)
-        server_ = task.result()
-        ready.set()
+    # Set up server
+    coroutine = event_loop.create_server(handler, host=pytest.msgapi.ip, port=port)
+    task = event_loop.create_task(coroutine)
+    event_loop.run_until_complete(task)
+    server_ = task.result()
 
-        # Loop until stopped
-        event_loop.run_forever()
-
-        # Tear down server
+    def fin():
         event_loop.run_until_complete(handler.finish_connections(1.0))
         server_.close()
         event_loop.run_until_complete(server_.wait_closed())
         event_loop.run_until_complete(app.finish())
-        event_loop.close()
-
-    def fin():
-        def _stop():
-            event_loop.stop()
-        event_loop.call_soon_threadsafe(_stop)
-        thread.join()
 
     request.addfinalizer(fin)
-
-    # Start event loop in the background
-    thread = threading.Thread(target=_loop_thread, args=(event_loop, port))
-    thread.start()
-    ready.wait()
 
 
 @pytest.fixture(scope='module')
@@ -126,14 +107,14 @@ def connection(server, mock_url):
 
 @pytest.fixture(scope='module')
 def invalid_connection(connection):
-    invalid_connection_ = copy.deepcopy(connection)
+    invalid_connection_ = copy.copy(connection)
     invalid_connection_.id = pytest.msgapi.noexist_id
     return invalid_connection_
 
 
 @pytest.fixture(scope='module')
 def nocredit_connection(connection):
-    nocredit_connection_ = copy.deepcopy(connection)
+    nocredit_connection_ = copy.copy(connection)
     nocredit_connection_.id = pytest.msgapi.nocredit_id
     return nocredit_connection_
 

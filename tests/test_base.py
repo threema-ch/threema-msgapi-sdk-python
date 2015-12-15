@@ -1,5 +1,7 @@
 import asyncio
 
+import pytest
+
 from aiohttp import web
 from aiohttp.web_urldispatcher import UrlDispatcher
 
@@ -13,7 +15,8 @@ router.add_route('GET', '/', hello)
 
 
 class TestPrerequisities:
+    @pytest.mark.asyncio
     def test_server(self, connection, mock_url):
-        response = connection._session.get(mock_url)
+        response = yield from connection._session.get(mock_url)
         assert response.status == 200
-        assert response.content == b'Hello World'
+        assert (yield from response.read()) == b'Hello World'
