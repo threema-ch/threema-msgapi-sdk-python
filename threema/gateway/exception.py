@@ -50,7 +50,7 @@ class GatewayServerError(GatewayError):
 
         # Return description for status code
         try:
-            return '[{}] {}'.format(self.status, self.status_description[status])
+            return '[{}] {}'.format(status, self.status_description[status])
         except KeyError:
             return 'Unknown error, status code: {}'.format(status)
 
