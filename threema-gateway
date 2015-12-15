@@ -251,16 +251,17 @@ def send_image(**arguments):
         key=private_key
     )
 
-    # Create message
-    message = e2e.ImageMessage(
-        connection=connection,
-        id=arguments['to'],
-        key=public_key,
-        image_path=arguments['image_path']
-    )
+    with connection:
+        # Create message
+        message = e2e.ImageMessage(
+            connection=connection,
+            id=arguments['to'],
+            key=public_key,
+            image_path=arguments['image_path']
+        )
 
-    # Send message
-    click.echo(message.send())
+        # Send message
+        click.echo((yield from message.send()))
 
 
 @cli.command(short_help='Send a file using end-to-end mode.', help="""
@@ -296,17 +297,18 @@ def send_file(**arguments):
         key=private_key
     )
 
-    # Create message
-    message = e2e.FileMessage(
-        connection=connection,
-        id=arguments['to'],
-        key=public_key,
-        file_path=arguments['file_path'],
-        thumbnail_path=arguments['thumbnail_path']
-    )
+    with connection:
+        # Create message
+        message = e2e.FileMessage(
+            connection=connection,
+            id=arguments['to'],
+            key=public_key,
+            file_path=arguments['file_path'],
+            thumbnail_path=arguments['thumbnail_path']
+        )
 
-    # Send message
-    click.echo(message.send())
+        # Send message
+        click.echo((yield from message.send()))
 
 
 @cli.command(short_help='Lookup a Threema ID or the public key.', help="""
@@ -374,4 +376,8 @@ def credits(**arguments):
 
 
 if __name__ == '__main__':
-    cli()
+    try:
+        cli()
+    except Exception as exc:
+        click.echo('An error occurred:', err=True)
+        click.echo(exc, err=True)
