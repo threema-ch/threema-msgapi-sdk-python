@@ -4,6 +4,9 @@ the Threema Gateway server. Obviously, the simulated server does not
 completely mimic the behaviour of the Gateway server.
 """
 import binascii
+import hashlib
+import os
+
 import asyncio
 
 import pytest
@@ -15,8 +18,12 @@ from threema.gateway.exception import *
 from threema.gateway import simple, e2e, ReceptionCapability
 
 
+_res_path = os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir, 'res'))
+_threema_jpg = os.path.join(_res_path, 'threema.jpg')
 _echoecho_key = b'4a6a1b34dcef15d43cb74de2fd36091be99fbbaf126d099d47d83d919712c72b'
 _echoecho_encoded_key = 'public:' + _echoecho_key.decode()
+_blobs = {}
+_latest_blob_ids = []
 
 
 @asyncio.coroutine
@@ -154,6 +161,60 @@ def send_e2e(request):
     return web.Response(body=b'1' * 16)
 
 
+@asyncio.coroutine
+def upload_blob(request):
+    try:
+        data = (yield from request.post())
+
+        # Check API identity
+        api_identity = (request.GET['from'], request.GET['secret'])
+        if api_identity not in pytest.msgapi.api_identities:
+            return web.Response(status=401)
+    except KeyError:
+        return web.Response(status=401)
+
+    try:
+        # Get blob and generate id
+        blob = data['blob'].file.read()
+        blob_id = hashlib.md5(blob).hexdigest()[16:]
+    except KeyError:
+        # Note: This status code might not be intended and may change in the future
+        return web.Response(status=500)
+
+    # Process
+    if request.GET['from'] == pytest.msgapi.nocredit_id:
+        return web.Response(status=402)
+    elif len(blob) == 0:
+        return web.Response(status=400)
+    elif len(blob) > 20 * (2**20):
+        return web.Response(status=413)
+
+    # Store blob and return
+    _blobs[blob_id] = blob
+    _latest_blob_ids.append(blob_id)
+    return web.Response(body=blob_id.encode())
+
+
+@asyncio.coroutine
+def download_blob(request):
+    blob_id = request.match_info['blob_id']
+
+    # Check API identity
+    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
+        return web.Response(status=401)
+
+    # Get blob
+    try:
+        blob = _blobs[blob_id]
+    except KeyError:
+        return web.Response(status=404)
+    else:
+        return web.Response(
+            body=blob,
+            content_type='application/octet-stream'
+        )
+
+
 router = UrlDispatcher()
 router.add_route('GET', '/pubkeys/{key}', pubkeys)
 router.add_route('GET', '/lookup/phone/{phone}', lookup_phone)
@@ -164,6 +225,8 @@ router.add_route('GET', '/capabilities/{id}', capabilities)
 router.add_route('GET', '/credits', credits)
 router.add_route('POST', '/send_simple', send_simple)
 router.add_route('POST', '/send_e2e', send_e2e)
+router.add_route('POST', '/upload_blob', upload_blob)
+router.add_route('GET', '/blobs/{blob_id}', download_blob)
 
 
 class RawMessage(e2e.Message):
@@ -503,3 +566,44 @@ class TestSendE2E:
             text='Hello'
         ).send()
         assert id_ == '1' * 16
+
+    def test_image(self, connection):
+        global _latest_blob_ids
+        _latest_blob_ids = []
+        id_ = e2e.ImageMessage(
+            connection=connection,
+            id='ECHOECHO',
+            key=_echoecho_encoded_key,
+            image_path=_threema_jpg
+        ).send()
+        assert id_ == '1' * 16
+        assert len(_latest_blob_ids) == 1
+        print(_latest_blob_ids, _blobs)
+        assert all((connection.download(blob_id) for blob_id in _latest_blob_ids))
+
+    def test_file(self, connection):
+        global _latest_blob_ids
+        _latest_blob_ids = []
+        id_ = e2e.FileMessage(
+            connection=connection,
+            id='ECHOECHO',
+            key=_echoecho_encoded_key,
+            file_path=_threema_jpg
+        ).send()
+        assert id_ == '1' * 16
+        assert len(_latest_blob_ids) == 1
+        assert all((connection.download(blob_id) for blob_id in _latest_blob_ids))
+
+    def test_file_with_thumbnail(self, connection):
+        global _latest_blob_ids
+        _latest_blob_ids = []
+        id_ = e2e.FileMessage(
+            connection=connection,
+            id='ECHOECHO',
+            key=_echoecho_encoded_key,
+            file_path=_threema_jpg,
+            thumbnail_path=_threema_jpg
+        ).send()
+        assert id_ == '1' * 16
+        assert len(_latest_blob_ids) == 2
+        assert all((connection.download(blob_id) for blob_id in _latest_blob_ids))
