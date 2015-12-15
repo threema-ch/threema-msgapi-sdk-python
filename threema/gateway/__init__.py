@@ -36,7 +36,7 @@ from .util import raise_server_error
 
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
-__version__ = '2.0.0'
+__version__ = '2.0.1'
 __all__ = (
     'feature_level',
     'ReceptionCapability',
