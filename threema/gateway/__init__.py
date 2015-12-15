@@ -27,9 +27,9 @@ import requests
 import libnacl.public
 import libnacl.encode
 
-from threema.gateway import exception
-from threema.gateway.exception import *
-from threema.gateway.key import Key
+from . import exception
+from .exception import *
+from .key import Key
 
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'

@@ -3,7 +3,7 @@ Provides classes for the simple mode.
 """
 import abc
 
-from threema.gateway.exception import MessageError
+from .exception import MessageError
 
 __all__ = (
     'Message',

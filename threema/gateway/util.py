@@ -1,7 +1,7 @@
 """
 Utility functions.
 """
-from threema.gateway.key import Key
+from .key import Key
 
 __all__ = (
     'read_key_or_key_file',

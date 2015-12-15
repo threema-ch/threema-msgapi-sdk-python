@@ -15,9 +15,9 @@ import libnacl.public
 import libnacl.secret
 import libnacl.encode
 
-from threema.gateway import ReceptionCapability
-from threema.gateway.exception import *
-from threema.gateway.key import Key
+from . import ReceptionCapability
+from .exception import *
+from .key import Key
 
 __all__ = (
     'encrypt',
