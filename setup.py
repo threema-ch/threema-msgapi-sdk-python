@@ -23,12 +23,11 @@ setup(
     packages=find_packages(),
     namespace_packages=['threema'],
     install_requires=[
-        'libnacl>=1.4.1',
-        'requests>=2.2.1',
-        'click>=3.3',
+        'libnacl>=1.4.3',
+        'click>=5.1',
     ],
     tests_require=[
-        'pytest>=2.7.2',
+        'pytest>=2.8.4',
         'aiohttp>=0.19.0',
         'asyncio>=3.4.3',
     ],
