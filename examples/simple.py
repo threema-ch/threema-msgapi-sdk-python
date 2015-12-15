@@ -8,12 +8,8 @@ from threema.gateway import Connection, MessageError
 from threema.gateway.simple import TextMessage
 
 
-# Create a connection
-connection = Connection('*YOUR_GATEWAY_THREEMA_ID', 'YOUR_GATEWAY_THREEMA_ID_SECRET')
-
-
 @asyncio.coroutine
-def send_via_id():
+def send_via_id(connection):
     """
     Send a message to a specific Threema ID.
     """
@@ -26,7 +22,7 @@ def send_via_id():
 
 
 @asyncio.coroutine
-def send_via_email():
+def send_via_email(connection):
     """
     Send a message via an email address.
     """
@@ -39,7 +35,7 @@ def send_via_email():
 
 
 @asyncio.coroutine
-def send_via_phone():
+def send_via_phone(connection):
     """
     Send a message via a phone number.
     """
@@ -53,10 +49,12 @@ def send_via_phone():
 
 @asyncio.coroutine
 def main():
+    connection = Connection('*YOUR_GATEWAY_THREEMA_ID', 'YOUR_GATEWAY_THREEMA_ID_SECRET')
     try:
-        yield from send_via_id()
-        yield from send_via_email()
-        yield from send_via_phone()
+        with connection:
+            yield from send_via_id(connection)
+            yield from send_via_email(connection)
+            yield from send_via_phone(connection)
     except MessageError as exc:
         print('Error:', exc)
 

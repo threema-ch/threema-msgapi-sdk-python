@@ -73,6 +73,6 @@ class TextMessage(Message):
             raise MessageError('Message text not specified')
 
         # Send message
-        data = {key: value for key, value in recipient.items() if key is not None}
+        data = {key: value for key, value in recipient.items() if value is not None}
         data['text'] = self.text
         return (yield from self.connection.send_simple(**data))

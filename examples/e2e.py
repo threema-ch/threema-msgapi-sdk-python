@@ -7,16 +7,9 @@ import asyncio
 from threema.gateway import Connection, MessageError
 from threema.gateway.e2e import TextMessage, ImageMessage, FileMessage
 
-# Create a connection
-connection = Connection(
-    id='*YOUR_GATEWAY_THREEMA_ID',
-    secret='YOUR_GATEWAY_THREEMA_ID_SECRET',
-    key='private:YOUR_PRIVATE_KEY'
-)
-
 
 @asyncio.coroutine
-def send():
+def send(connection):
     """
     Send a message to a specific Threema ID.
 
@@ -33,7 +26,7 @@ def send():
 
 
 @asyncio.coroutine
-def send_cached_key():
+def send_cached_key(connection):
     """
     Send a message to a specific Threema ID with an already cached
     public key of that recipient.
@@ -48,7 +41,7 @@ def send_cached_key():
 
 
 @asyncio.coroutine
-def send_cached_key_file():
+def send_cached_key_file(connection):
     """
     Send a message to a specific Threema ID with an already cached
     public key (stored in a file) of that recipient.
@@ -63,7 +56,7 @@ def send_cached_key_file():
 
 
 @asyncio.coroutine
-def send_image():
+def send_image(connection):
     """
     Send an image to a specific Threema ID.
 
@@ -80,7 +73,7 @@ def send_image():
 
 
 @asyncio.coroutine
-def send_file():
+def send_file(connection):
     """
     Send a file to a specific Threema ID.
 
@@ -97,7 +90,7 @@ def send_file():
 
 
 @asyncio.coroutine
-def send_file_with_thumbnail():
+def send_file_with_thumbnail(connection):
     """
     Send a file to a specific Threema ID including a thumbnail.
 
@@ -116,13 +109,19 @@ def send_file_with_thumbnail():
 
 @asyncio.coroutine
 def main():
+    connection = Connection(
+        id='*YOUR_GATEWAY_THREEMA_ID',
+        secret='YOUR_GATEWAY_THREEMA_ID_SECRET',
+        key='private:YOUR_PRIVATE_KEY'
+    )
     try:
-        yield from send()
-        yield from send_cached_key()
-        yield from send_cached_key_file()
-        yield from send_image()
-        yield from send_file()
-        yield from send_file_with_thumbnail()
+        with connection:
+            yield from send(connection)
+            yield from send_cached_key(connection)
+            yield from send_cached_key_file(connection)
+            yield from send_image(connection)
+            yield from send_file(connection)
+            yield from send_file_with_thumbnail(connection)
     except MessageError as exc:
         print('Error:', exc)
 

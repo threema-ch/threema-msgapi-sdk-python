@@ -7,23 +7,21 @@ import asyncio
 from threema.gateway import Connection, GatewayError, Key
 
 
-# Create a connection
-connection = Connection('*YOUR_GATEWAY_THREEMA_ID', 'YOUR_GATEWAY_THREEMA_ID_SECRET')
-
-
 @asyncio.coroutine
 def main():
+    connection = Connection('*YOUR_GATEWAY_THREEMA_ID', 'YOUR_GATEWAY_THREEMA_ID_SECRET')
     try:
-        print((yield from connection.get_credits()))
-        print((yield from connection.get_id(phone='41791234567')))
-        phone_hash = 'ad398f4d7ebe63c6550a486cc6e07f9baa09bd9d8b3d8cb9d9be106d35a7fdbc'
-        print((yield from connection.get_id(phone_hash=phone_hash)))
-        print((yield from connection.get_id(email='test@threema.ch')))
-        email_hash = '1ea093239cc5f0e1b6ec81b866265b921f26dc4033025410063309f4d1a8ee2c'
-        print((yield from connection.get_id(email_hash=email_hash)))
-        key = (yield from connection.get_public_key('ECHOECHO'))
-        print(Key.encode(key))
-        print((yield from connection.get_reception_capabilities('ECHOECHO')))
+        with connection:
+            print((yield from connection.get_credits()))
+            print((yield from connection.get_id(phone='41791234567')))
+            phone_hash = 'ad398f4d7ebe63c6550a486cc6e07f9baa09bd9d8b3d8cb9d9be106d35a7fdbc'
+            print((yield from connection.get_id(phone_hash=phone_hash)))
+            print((yield from connection.get_id(email='test@threema.ch')))
+            email_hash = '1ea093239cc5f0e1b6ec81b866265b921f26dc4033025410063309f4d1a8ee2c'
+            print((yield from connection.get_id(email_hash=email_hash)))
+            key = (yield from connection.get_public_key('ECHOECHO'))
+            print(Key.encode(key))
+            print((yield from connection.get_reception_capabilities('ECHOECHO')))
     except GatewayError as exc:
         print('Error:', exc)
 
