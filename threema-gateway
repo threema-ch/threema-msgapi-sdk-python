@@ -26,10 +26,18 @@ def aio_run(func):
 
 
 @click.group()
-def cli():
+@click.option('-vf', '--verify-fingerprint', is_flag=True,
+              help='Verify the certificate fingerprint.')
+@click.option('--fingerprint', type=str, help='A hex-encoded fingerprint.')
+@click.pass_context
+def cli(ctx, verify_fingerprint, fingerprint):
     """
     Command Line Interface. Use --help for details.
     """
+    ctx.obj = {
+        'verify_fingerprint': verify_fingerprint,
+        'fingerprint': fingerprint
+    }
 
 
 @cli.command(short_help='Show version information.', help="""
@@ -157,13 +165,14 @@ Prints the message ID on success.
 @click.argument('to')
 @click.argument('from')
 @click.argument('secret')
+@click.pass_context
 @aio_run
-def send_simple(**arguments):
+def send_simple(ctx, **arguments):
     # Read message from stdin
     text = click.get_text_stream('stdin').read().strip()
 
     # Create connection
-    with Connection(arguments['from'], arguments['secret']) as connection:
+    with Connection(arguments['from'], arguments['secret'], **ctx.obj) as connection:
         # Create message
         message = simple.TextMessage(
             connection=connection,
@@ -188,8 +197,9 @@ Prints the message ID on success.
 @click.option('-k', '--public-key', help="""
 The public key of the recipient. Will be fetched automatically if not provided.
 """)
+@click.pass_context
 @aio_run
-def send_e2e(**arguments):
+def send_e2e(ctx, **arguments):
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
     if arguments['public_key'] is not None:
@@ -204,7 +214,8 @@ def send_e2e(**arguments):
     connection = Connection(
         id=arguments['from'],
         secret=arguments['secret'],
-        key=private_key
+        key=private_key,
+        **ctx.obj
     )
 
     with connection:
@@ -235,8 +246,9 @@ Prints the message ID on success.
 @click.option('-k', '--public-key', help="""
 The public key of the recipient. Will be fetched automatically if not provided.
 """)
+@click.pass_context
 @aio_run
-def send_image(**arguments):
+def send_image(ctx, **arguments):
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
     if arguments['public_key'] is not None:
@@ -248,7 +260,8 @@ def send_image(**arguments):
     connection = Connection(
         id=arguments['from'],
         secret=arguments['secret'],
-        key=private_key
+        key=private_key,
+        **ctx.obj
     )
 
     with connection:
@@ -281,8 +294,9 @@ The public key of the recipient. Will be fetched automatically if not provided.
 @click.option('-t', '--thumbnail-path', help="""
 The relative or absolute path to a thumbnail.
 """)
+@click.pass_context
 @aio_run
-def send_file(**arguments):
+def send_file(ctx, **arguments):
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
     if arguments['public_key'] is not None:
@@ -294,7 +308,8 @@ def send_file(**arguments):
     connection = Connection(
         id=arguments['from'],
         secret=arguments['secret'],
-        key=private_key
+        key=private_key,
+        **ctx.obj
     )
 
     with connection:
@@ -321,8 +336,9 @@ FROM is the API identity and SECRET is the API secret.
 @click.option('-e', '--email', help='An email address.')
 @click.option('-p', '--phone', help='A phone number in E.164 format.')
 @click.option('-i', '--id', help='A Threema ID.')
+@click.pass_context
 @aio_run
-def lookup(**arguments):
+def lookup(ctx, **arguments):
     modes = ['email', 'phone', 'id']
     mode = {key: value for key, value in arguments.items()
             if key in modes and value is not None}
@@ -333,7 +349,8 @@ def lookup(**arguments):
         raise click.ClickException(error)
 
     # Create connection
-    with Connection(arguments['from'], secret=arguments['secret']) as connection:
+    connection = Connection(arguments['from'], secret=arguments['secret'], **ctx.obj)
+    with connection:
         # Do lookup
         if 'id' in mode:
             public_key = yield from connection.get_public_key(arguments['id'])
@@ -350,10 +367,11 @@ Prints a set of capabilities in alphabetical order on success.
 @click.argument('from')
 @click.argument('secret')
 @click.argument('id')
+@click.pass_context
 @aio_run
-def capabilities(**arguments):
+def capabilities(ctx, **arguments):
     # Create connection
-    with Connection(arguments['from'], arguments['secret']) as connection:
+    with Connection(arguments['from'], arguments['secret'], **ctx.obj) as connection:
         # Lookup and format returned capabilities
         coroutine = connection.get_reception_capabilities(arguments['id'])
         capabilities_ = yield from coroutine
@@ -367,10 +385,11 @@ FROM is the API identity and SECRET is the API secret.
 """)
 @click.argument('from')
 @click.argument('secret')
+@click.pass_context
 @aio_run
-def credits(**arguments):
+def credits(ctx, **arguments):
     # Create connection
-    with Connection(arguments['from'], arguments['secret']) as connection:
+    with Connection(arguments['from'], arguments['secret'], **ctx.obj) as connection:
         # Get and print credits
         click.echo((yield from connection.get_credits()))
 

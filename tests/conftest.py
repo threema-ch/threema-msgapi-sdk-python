@@ -1,6 +1,5 @@
 import socket
 import asyncio
-import threading
 import copy
 
 import pytest

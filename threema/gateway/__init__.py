@@ -25,7 +25,6 @@ import enum
 import asyncio
 
 import aiohttp
-
 import libnacl.public
 import libnacl.encode
 
@@ -36,7 +35,7 @@ from .util import raise_server_error
 
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
-__version__ = '2.0.3'
+__version__ = '2.1.3'
 __all__ = (
     'feature_level',
     'ReceptionCapability',
@@ -76,7 +75,14 @@ class Connection:
           end-to-end mode.
         - `key_file`: A file where the private key is stored in. Can
           be used instead of passing the key directly.
+        - `verify_fingerprint`: Set to `True` if you want to verify the
+          TLS certificate of the Threema Gateway Server by a
+          fingerprint. (Recommended)
+        - `fingerprint`: A hex-encoded fingerprint of an DER-encoded
+          TLS certificate. Will fall back to a stored fingerprint which
+          will be invalid as soon as the certificate expires.
     """
+    fingerprint = b'm\x7f\xa3\x1d\x80\xdcV\xf9\xc1\xed\x17\x98*\xd6\x01\x7f'
     urls = {
         'get_public_key': 'https://msgapi.threema.ch/pubkeys/{}',
         'get_id_by_phone': 'https://msgapi.threema.ch/lookup/phone/{}',
@@ -91,8 +97,12 @@ class Connection:
         'download_blob': 'https://msgapi.threema.ch/blobs/{}'
     }
 
-    def __init__(self, id, secret, key=None, key_file=None):
-        self._session = aiohttp.ClientSession()
+    def __init__(self, id, secret, key=None, key_file=None, fingerprint=None,
+                 verify_fingerprint=False):
+        if fingerprint is None and verify_fingerprint:
+            fingerprint = self.fingerprint
+        connector = aiohttp.TCPConnector(fingerprint=fingerprint)
+        self._session = aiohttp.ClientSession(connector=connector)
         self._key = None
         self._key_file = None
         self.id = id
