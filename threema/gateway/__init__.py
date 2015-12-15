@@ -33,11 +33,14 @@ from .key import Key
 
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
-__version__ = '1.1.6'
+__version__ = '1.1.7'
 __all__ = (
+    'feature_level',
     'ReceptionCapability',
     'Connection',
 ) + exception.__all__
+
+feature_level = 3
 
 
 @enum.unique

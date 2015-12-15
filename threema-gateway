@@ -7,7 +7,8 @@ import binascii
 
 import click
 
-from threema.gateway import simple, e2e, util, Connection
+from threema.gateway import __version__ as _version
+from threema.gateway import feature_level, simple, e2e, util, Connection
 from threema.gateway.key import HMAC, Key
 
 
@@ -16,7 +17,15 @@ def cli():
     """
     Command Line Interface. Use --help for details.
     """
-    pass
+
+
+@cli.command(short_help='Show version information.', help="""
+Show the current version of the Python SDK and the implemented feature
+level.
+""")
+def version():
+    click.echo('Version: {}'.format(_version))
+    click.echo('Feature Level: {}'.format(feature_level))
 
 
 @cli.command(short_help='Encrypt a text message.', help="""
