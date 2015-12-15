@@ -33,7 +33,7 @@ from .key import Key
 
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
-__version__ = '1.1.8'
+__version__ = '1.1.9'
 __all__ = (
     'feature_level',
     'ReceptionCapability',
@@ -141,7 +141,7 @@ class Connection:
             key = libnacl.encode.hex_decode(response.text)
             return libnacl.public.PublicKey(key)
         else:
-            raise KeyServerError(response)
+            raise KeyServerError(response.status_code)
 
     def get_id(self, **mode):
         """
@@ -179,7 +179,7 @@ class Connection:
         if response.status_code == 200:
             return response.text
         else:
-            raise IDServerError(response)
+            raise IDServerError(response.status_code)
 
     def get_reception_capabilities(self, id):
         """
@@ -198,7 +198,7 @@ class Connection:
             except ValueError as exc:
                 raise ReceptionCapabilitiesError('Invalid reception capability') from exc
         else:
-            raise ReceptionCapabilitiesServerError(response)
+            raise ReceptionCapabilitiesServerError(response.status_code)
 
     def get_credits(self):
         """
@@ -208,7 +208,7 @@ class Connection:
         if response.status_code == 200:
             return int(response.text)
         else:
-            raise CreditsServerError(response)
+            raise CreditsServerError(response.status_code)
 
     def send_simple(self, **data):
         """
@@ -256,7 +256,7 @@ class Connection:
         if response.status_code == 200:
             return response.content
         else:
-            raise BlobServerError(response)
+            raise BlobServerError(response.status_code)
 
     def _get(self, *args, **kwargs):
         """
@@ -289,7 +289,7 @@ class Connection:
         if response.status_code == 200:
             return response.text
         else:
-            raise MessageServerError(response)
+            raise MessageServerError(response.status_code)
 
     def _upload(self, url, data):
         """
@@ -311,4 +311,4 @@ class Connection:
         if response.status_code == 200:
             return response.text
         else:
-            raise BlobServerError(response)
+            raise BlobServerError(response.status_code)

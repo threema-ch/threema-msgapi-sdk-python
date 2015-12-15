@@ -52,7 +52,7 @@ class TextMessage(Message):
         """
         Send the created message.
 
-        Return an instance of a :class:`requests.Response`.
+        Return the ID of the sent message.
         """
         recipient = {
             'to': self.id,
@@ -71,6 +71,6 @@ class TextMessage(Message):
             raise MessageError('Message text not specified')
 
         # Send message
-        data = {key: value for key, value in recipient.items() if key is not None}
+        data = {key: value for key, value in recipient.items() if value is not None}
         data['text'] = self.text
         return self.connection.send_simple(**data)
