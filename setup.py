@@ -25,11 +25,12 @@ setup(
     install_requires=[
         'libnacl>=1.4.3',
         'click>=5.1',
+        'aiohttp>=0.19.0',
+        'asyncio>= 3.4.3',
     ],
     tests_require=[
         'pytest>=2.8.4',
-        'aiohttp>=0.19.0',
-        'asyncio>=3.4.3',
+        'pytest-asyncio>=0.2.0',
     ],
     include_package_data=True,
 
