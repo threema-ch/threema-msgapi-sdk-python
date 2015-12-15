@@ -125,5 +125,8 @@ def blob():
 
 
 @pytest.fixture(scope='module')
-def blob_id(connection, blob):
-    return connection.upload(blob)
+def blob_id(event_loop, connection, blob):
+    coroutine = connection.upload(blob)
+    task = event_loop.create_task(coroutine)
+    event_loop.run_until_complete(task)
+    return task.result()
