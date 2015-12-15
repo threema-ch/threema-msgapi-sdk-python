@@ -32,23 +32,27 @@ class GatewayServerError(GatewayError):
     The server has responded with an error code. All other server
     exceptions are derived from this class.
 
+    .. versionchanged:: 1.1.9
+       Now only contains an HTTP status code instead of holding whole
+       request objects which may not be released.
+       Does now return the status code when printed.
+
     Arguments:
-        - `response`: An instance of a :class:`requests.Response`
-          object.
+        - `status`: An HTTP status code.
     """
     status_description = {}
 
-    def __init__(self, response):
-        self.response = response
+    def __init__(self, status):
+        self.status = status
 
     def __str__(self):
-        status_code = self.response.status_code
+        status = self.status
 
         # Return description for status code
         try:
-            return self.status_description[status_code]
+            return '[{}] {}'.format(self.status, self.status_description[status])
         except KeyError:
-            return 'Unknown error, status code: {}'.format(status_code)
+            return 'Unknown error, status code: {}'.format(status)
 
 
 class IDError(GatewayError):

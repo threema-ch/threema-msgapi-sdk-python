@@ -2,6 +2,8 @@
 You can modify and use one of the functions below to test the gateway
 service with your account.
 """
+import asyncio
+
 from threema.gateway import Connection, MessageError
 from threema.gateway.simple import TextMessage
 
@@ -10,6 +12,7 @@ from threema.gateway.simple import TextMessage
 connection = Connection('*YOUR_GATEWAY_THREEMA_ID', 'YOUR_GATEWAY_THREEMA_ID_SECRET')
 
 
+@asyncio.coroutine
 def send_via_id():
     """
     Send a message to a specific Threema ID.
@@ -19,9 +22,10 @@ def send_via_id():
         id='ECHOECHO',
         text='Hello from the world of Python!'
     )
-    return message.send()
+    return (yield from message.send())
 
 
+@asyncio.coroutine
 def send_via_email():
     """
     Send a message via an email address.
@@ -31,9 +35,10 @@ def send_via_email():
         email='test@threema.ch',
         text='Hello from the world of Python!'
     )
-    return message.send()
+    return (yield from message.send())
 
 
+@asyncio.coroutine
 def send_via_phone():
     """
     Send a message via a phone number.
@@ -43,17 +48,19 @@ def send_via_phone():
         phone='41791234567',
         text='Hello from the world of Python!'
     )
-    return message.send()
+    return (yield from message.send())
 
 
+@asyncio.coroutine
 def main():
     try:
-        send_via_id()
-        send_via_email()
-        send_via_phone()
+        yield from send_via_id()
+        yield from send_via_email()
+        yield from send_via_phone()
     except MessageError as exc:
         print('Error:', exc)
 
 
 if __name__ == '__main__':
-    main()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())

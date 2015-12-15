@@ -237,6 +237,7 @@ class RawMessage(e2e.Message):
         self.nonce = nonce
         self.message = message
 
+    @asyncio.coroutine
     def send(self):
         """
         Send the raw message
@@ -244,28 +245,28 @@ class RawMessage(e2e.Message):
         Return the ID of the message.
         """
         # Send message
-        return self.connection.send_e2e(**{
+        return (yield from self.connection.send_e2e(**{
             'to': self.id,
             'nonce': binascii.hexlify(self.nonce),
             'box': binascii.hexlify(self.message)
-        })
+        }))
 
 
 class TestLookupPublicKey:
     def test_invalid_identitiy(self, invalid_connection):
         with pytest.raises(KeyServerError) as exc_info:
             invalid_connection.get_public_key('ECHOECHO')
-        assert exc_info.value.response.status_code == 401
+        assert exc_info.value.response.status == 401
 
     def test_invalid_length(self, connection):
         with pytest.raises(KeyServerError) as exc_info:
             connection.get_public_key('TEST')
-        assert exc_info.value.response.status_code == 404
+        assert exc_info.value.response.status == 404
 
     def test_unknown_id(self, connection):
         with pytest.raises(KeyServerError) as exc_info:
             connection.get_public_key('00000000')
-        assert exc_info.value.response.status_code == 404
+        assert exc_info.value.response.status == 404
 
     def test_valid_id(self, connection):
         key = connection.get_public_key('ECHOECHO')
@@ -276,17 +277,17 @@ class TestLookupIDByPhone:
     def test_invalid_identity(self, invalid_connection):
         with pytest.raises(IDServerError) as exc_info:
             invalid_connection.get_id(phone='44123456789')
-        assert exc_info.value.response.status_code == 401
+        assert exc_info.value.response.status == 401
 
     def test_unknown_phone(self, connection):
         with pytest.raises(IDServerError) as exc_info:
             connection.get_id(phone='44987654321')
-        assert exc_info.value.response.status_code == 404
+        assert exc_info.value.response.status == 404
 
     def test_invalid_phone(self, connection):
         with pytest.raises(IDServerError) as exc_info:
             connection.get_id(phone='-12537825318')
-        assert exc_info.value.response.status_code == 404
+        assert exc_info.value.response.status == 404
 
     def test_valid_phone(self, connection):
         id_ = connection.get_id(phone='44123456789')
@@ -297,31 +298,31 @@ class TestLookupIDByPhoneHash:
     def test_invalid_identity(self, invalid_connection):
         with pytest.raises(IDServerError) as exc_info:
             invalid_connection.get_id(phone_hash='invalid_hash')
-        assert exc_info.value.response.status_code == 401
+        assert exc_info.value.response.status == 401
 
     def test_invalid_length(self, connection):
         phone_hash = '98b05f6eda7a878f6f016bdcdc9db6eb61a6b190e814ff787142115af14421'
         with pytest.raises(IDServerError) as exc_info:
             connection.get_id(phone_hash=phone_hash)
-        assert exc_info.value.response.status_code == 400
+        assert exc_info.value.response.status == 400
 
     def test_odd_length(self, connection):
         phone_hash = '98b05f6eda7a878f6f016bdcdc9db6eb61a6b190e814ff787142115af144214'
         with pytest.raises(IDServerError) as exc_info:
             connection.get_id(phone_hash=phone_hash)
         # Note: This status code might not be intended and may change in the future
-        assert exc_info.value.response.status_code == 500
+        assert exc_info.value.response.status == 500
 
     def test_invalid_phone_hash(self, connection):
         with pytest.raises(IDServerError) as exc_info:
             connection.get_id(phone_hash='1234')
-        assert exc_info.value.response.status_code == 400
+        assert exc_info.value.response.status == 400
 
     def test_unknown_phone_hash(self, connection):
         phone_hash = '98b05f6eda7a878f6f016bdcdc9db6eb61a6b190e814ff787142115af144214a'
         with pytest.raises(IDServerError) as exc_info:
             connection.get_id(phone_hash=phone_hash)
-        assert exc_info.value.response.status_code == 404
+        assert exc_info.value.response.status == 404
 
     def test_valid_phone_hash(self, connection):
         phone_hash = '98b05f6eda7a878f6f016bdcdc9db6eb61a6b190e814ff787142115af144214c'
@@ -333,17 +334,17 @@ class TestLookupIDByEmail:
     def test_invalid_identity(self, invalid_connection):
         with pytest.raises(IDServerError) as exc_info:
             invalid_connection.get_id(email='echoecho@example.com')
-        assert exc_info.value.response.status_code == 401
+        assert exc_info.value.response.status == 401
 
     def test_unknown_email(self, connection):
         with pytest.raises(IDServerError) as exc_info:
             connection.get_id(email='somemail@example.com')
-        assert exc_info.value.response.status_code == 404
+        assert exc_info.value.response.status == 404
 
     def test_invalid_email(self, connection):
         with pytest.raises(IDServerError) as exc_info:
             connection.get_id(email='invalid')
-        assert exc_info.value.response.status_code == 404
+        assert exc_info.value.response.status == 404
 
     def test_valid_email(self, connection):
         id_ = connection.get_id(email='echoecho@example.com')
@@ -354,31 +355,31 @@ class TestLookupIDByEmailHash:
     def test_invalid_identity(self, invalid_connection):
         with pytest.raises(IDServerError) as exc_info:
             invalid_connection.get_id(email_hash='invalid_hash')
-        assert exc_info.value.response.status_code == 401
+        assert exc_info.value.response.status == 401
 
     def test_invalid_length(self, connection):
         email_hash = '45a13d422b40f81936a9987245d3f6d9064c90607273af4f578246b4484669'
         with pytest.raises(IDServerError) as exc_info:
             connection.get_id(email_hash=email_hash)
-        assert exc_info.value.response.status_code == 400
+        assert exc_info.value.response.status == 400
 
     def test_odd_length(self, connection):
         email_hash = '45a13d422b40f81936a9987245d3f6d9064c90607273af4f578246b4484669e'
         with pytest.raises(IDServerError) as exc_info:
             connection.get_id(email_hash=email_hash)
         # Note: This status code might not be intended and may change in the future
-        assert exc_info.value.response.status_code == 500
+        assert exc_info.value.response.status == 500
 
     def test_invalid_email_hash(self, connection):
         with pytest.raises(IDServerError) as exc_info:
             connection.get_id(email_hash='1234')
-        assert exc_info.value.response.status_code == 400
+        assert exc_info.value.response.status == 400
 
     def test_unknown_email_hash(self, connection):
         email_hash = '45a13d422b40f81936a9987245d3f6d9064c90607273af4f578246b4484669e1'
         with pytest.raises(IDServerError) as exc_info:
             connection.get_id(email_hash=email_hash)
-        assert exc_info.value.response.status_code == 404
+        assert exc_info.value.response.status == 404
 
     def test_valid_email_hash(self, connection):
         email_hash = '45a13d422b40f81936a9987245d3f6d9064c90607273af4f578246b4484669e2'
@@ -390,17 +391,17 @@ class TestReceptionCapabilities:
     def test_invalid_identity(self, invalid_connection):
         with pytest.raises(ReceptionCapabilitiesServerError) as exc_info:
             invalid_connection.get_reception_capabilities('ECHOECHO')
-        assert exc_info.value.response.status_code == 401
+        assert exc_info.value.response.status == 401
 
     def test_invalid_length(self, connection):
         with pytest.raises(ReceptionCapabilitiesServerError) as exc_info:
             connection.get_reception_capabilities('TEST')
-        assert exc_info.value.response.status_code == 404
+        assert exc_info.value.response.status == 404
 
     def test_unknown_id(self, connection):
         with pytest.raises(ReceptionCapabilitiesServerError) as exc_info:
             connection.get_reception_capabilities('00000000')
-        assert exc_info.value.response.status_code == 404
+        assert exc_info.value.response.status == 404
 
     def test_valid_id(self, connection):
         key = connection.get_reception_capabilities('ECHOECHO')
@@ -416,7 +417,7 @@ class TestCredits:
     def test_invalid_identity(self, invalid_connection):
         with pytest.raises(CreditsServerError) as exc_info:
             invalid_connection.get_credits()
-        assert exc_info.value.response.status_code == 401
+        assert exc_info.value.response.status == 401
 
     def test_valid(self, connection):
         assert connection.get_credits() == 100
@@ -426,12 +427,12 @@ class TestUploadBlob:
     def test_invalid_identity(self, invalid_connection):
         with pytest.raises(BlobServerError) as exc_info:
             invalid_connection.upload(b'\x01')
-        assert exc_info.value.response.status_code == 401
+        assert exc_info.value.response.status == 401
 
     def test_insufficient_credits(self, nocredit_connection):
         with pytest.raises(BlobServerError) as exc_info:
             nocredit_connection.upload(b'\x01')
-        assert exc_info.value.response.status_code == 402
+        assert exc_info.value.response.status == 402
 
     def test_just_ok(self, connection):
         blob_id = connection.upload(bytes(20 * (2**20)))
@@ -444,12 +445,12 @@ class TestUploadBlob:
             blob_id = connection.upload(bytes((20 * (2**20)) + 1))
             # Note: Remove big blob because further tests may hang
             del _blobs[blob_id]
-        assert exc_info.value.response.status_code == 413
+        assert exc_info.value.response.status == 413
 
     def test_zero(self, connection):
         with pytest.raises(BlobServerError) as exc_info:
             connection.upload(b'')
-        assert exc_info.value.response.status_code == 400
+        assert exc_info.value.response.status == 400
 
     def test_file(self, connection):
         assert len(connection.upload(b'\x01')) == 16
@@ -458,24 +459,24 @@ class TestUploadBlob:
 class TestDownloadBlob:
     def test_invalid_identity(self, invalid_connection, blob_id):
         with pytest.raises(BlobServerError) as exc_info:
-            invalid_connection.download(blob_id)
-        assert exc_info.value.response.status_code == 401
+            invalid_connection.download(blob_id).read()
+        assert exc_info.value.response.status == 401
 
     def test_invalid_id(self, connection):
         with pytest.raises(BlobServerError) as exc_info:
-            connection.download('f' * 15)
-        assert exc_info.value.response.status_code == 404
+            connection.download('f' * 15).read()
+        assert exc_info.value.response.status == 404
 
     def test_unknown_id(self, connection):
         with pytest.raises(BlobServerError) as exc_info:
-            connection.download('f' * 16)
-        assert exc_info.value.response.status_code == 404
+            connection.download('f' * 16).read()
+        assert exc_info.value.response.status == 404
 
     def test_file(self, connection, blob_id, blob):
-        assert connection.download(blob_id) == blob
+        assert connection.download(blob_id).read() == blob
 
     def test_no_credits(self, nocredit_connection, blob_id, blob):
-        assert nocredit_connection.download(blob_id) == blob
+        assert nocredit_connection.download(blob_id).read() == blob
 
 
 class TestSendSimple:
@@ -486,7 +487,7 @@ class TestSendSimple:
                 id='ECHOECHO',
                 text='Hello'
             ).send()
-        assert exc_info.value.response.status_code == 401
+        assert exc_info.value.response.status == 401
 
     def test_insufficient_credits(self, nocredit_connection):
         with pytest.raises(MessageServerError) as exc_info:
@@ -495,7 +496,7 @@ class TestSendSimple:
                 id='ECHOECHO',
                 text='Hello'
             ).send()
-        assert exc_info.value.response.status_code == 402
+        assert exc_info.value.response.status == 402
 
     def test_message_too_long(self, connection):
         with pytest.raises(MessageServerError) as exc_info:
@@ -504,7 +505,7 @@ class TestSendSimple:
                 id='ECHOECHO',
                 text='0' * 3501
             ).send()
-        assert exc_info.value.response.status_code == 413
+        assert exc_info.value.response.status == 413
 
     def test_unknown_id(self, connection):
         with pytest.raises(MessageServerError) as exc_info:
@@ -513,7 +514,7 @@ class TestSendSimple:
                 id='00000000',
                 text='Hello'
             ).send()
-        assert exc_info.value.response.status_code == 400
+        assert exc_info.value.response.status == 400
 
     def test_unknown_email(self, connection):
         with pytest.raises(MessageServerError) as exc_info:
@@ -522,7 +523,7 @@ class TestSendSimple:
                 email='somemail@example.com',
                 text='Hello'
             ).send()
-        assert exc_info.value.response.status_code == 404
+        assert exc_info.value.response.status == 404
 
     def test_unknown_phone(self, connection):
         with pytest.raises(MessageServerError) as exc_info:
@@ -531,7 +532,7 @@ class TestSendSimple:
                 phone='44987654321',
                 text='Hello'
             ).send()
-        assert exc_info.value.response.status_code == 404
+        assert exc_info.value.response.status == 404
 
     def test_via_id(self, connection):
         id_ = simple.TextMessage(
@@ -567,7 +568,7 @@ class TestSendE2E:
                 key=_echoecho_encoded_key,
                 text='Hello'
             ).send()
-        assert exc_info.value.response.status_code == 401
+        assert exc_info.value.response.status == 401
 
     def test_insufficient_credits(self, nocredit_connection):
         with pytest.raises(MessageServerError) as exc_info:
@@ -577,7 +578,7 @@ class TestSendE2E:
                 key=_echoecho_encoded_key,
                 text='Hello'
             ).send()
-        assert exc_info.value.response.status_code == 402
+        assert exc_info.value.response.status == 402
 
     def test_message_too_long(self, connection):
         with pytest.raises(MessageServerError) as exc_info:
@@ -587,7 +588,7 @@ class TestSendE2E:
                 nonce=b'0' * 24,
                 message=b'1' * 4001
             ).send()
-        assert exc_info.value.response.status_code == 413
+        assert exc_info.value.response.status == 413
 
     def test_unknown_id(self, connection):
         with pytest.raises(MessageServerError) as exc_info:
@@ -597,7 +598,7 @@ class TestSendE2E:
                 key=_echoecho_encoded_key,
                 text='Hello'
             ).send()
-        assert exc_info.value.response.status_code == 400
+        assert exc_info.value.response.status == 400
 
     def test_raw(self, connection):
         id_ = RawMessage(
@@ -636,8 +637,8 @@ class TestSendE2E:
         ).send()
         assert id_ == '1' * 16
         assert len(_latest_blob_ids) == 1
-        print(_latest_blob_ids, _blobs)
-        assert all((connection.download(blob_id) for blob_id in _latest_blob_ids))
+        assert all((connection.download(blob_id).read()
+                    for blob_id in _latest_blob_ids))
 
     def test_file(self, connection):
         global _latest_blob_ids
@@ -650,7 +651,8 @@ class TestSendE2E:
         ).send()
         assert id_ == '1' * 16
         assert len(_latest_blob_ids) == 1
-        assert all((connection.download(blob_id) for blob_id in _latest_blob_ids))
+        assert all((connection.download(blob_id).read()
+                    for blob_id in _latest_blob_ids))
 
     def test_file_with_thumbnail(self, connection):
         global _latest_blob_ids
@@ -664,4 +666,5 @@ class TestSendE2E:
         ).send()
         assert id_ == '1' * 16
         assert len(_latest_blob_ids) == 2
-        assert all((connection.download(blob_id) for blob_id in _latest_blob_ids))
+        assert all((connection.download(blob_id).read()
+                    for blob_id in _latest_blob_ids))

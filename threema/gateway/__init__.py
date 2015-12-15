@@ -22,18 +22,21 @@ The mode that you can use depends on the way your account was set up.
 .. moduleauthor:: Lennart Grahl <lennart.grahl@threema.ch>
 """
 import enum
+import asyncio
 
-import requests
+import aiohttp
+
 import libnacl.public
 import libnacl.encode
 
 from . import exception
 from .exception import *
 from .key import Key
+from .util import raise_server_error
 
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
-__version__ = '1.1.8'
+__version__ = '2.0.0'
 __all__ = (
     'feature_level',
     'ReceptionCapability',
@@ -85,13 +88,19 @@ class Connection:
     }
 
     def __init__(self, id, secret, key=None, key_file=None):
-        self._session = requests.Session()
+        self._session = aiohttp.ClientSession()
         self._key = None
         self._key_file = None
         self.id = id
         self.secret = secret
         self.key = key
         self.key_file = key_file
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self._session.close()
 
     @property
     def key(self):
@@ -127,6 +136,7 @@ class Connection:
                 self.key = file.readline().strip()
         self._key_file = key_file
 
+    @asyncio.coroutine
     def get_public_key(self, id):
         """
         Get the public key of a Threema ID.
@@ -136,13 +146,15 @@ class Connection:
 
         Return a :class:`libnacl.public.PublicKey` for a Threema ID.
         """
-        response = self._get(self.urls['get_public_key'].format(id))
-        if response.status_code == 200:
-            key = libnacl.encode.hex_decode(response.text)
+        response = yield from self._get(self.urls['get_public_key'].format(id))
+        if response.status == 200:
+            text = yield from response.text()
+            key = libnacl.encode.hex_decode(text)
             return libnacl.public.PublicKey(key)
         else:
-            raise KeyServerError(response)
+            yield from raise_server_error(response, KeyServerError)
 
+    @asyncio.coroutine
     def get_id(self, **mode):
         """
         Get a user's Threema ID.
@@ -175,12 +187,13 @@ class Connection:
 
         # Select mode and start request
         mode, value = mode.popitem()
-        response = self._get(self.urls[modes[mode]].format(value))
-        if response.status_code == 200:
-            return response.text
+        response = yield from self._get(self.urls[modes[mode]].format(value))
+        if response.status == 200:
+            return (yield from response.text())
         else:
-            raise IDServerError(response)
+            yield from raise_server_error(response, IDServerError)
 
+    @asyncio.coroutine
     def get_reception_capabilities(self, id):
         """
         Get the reception capabilities of a Threema ID.
@@ -190,26 +203,32 @@ class Connection:
 
         Return a set containing items from :class:`ReceptionCapability`.
         """
-        response = self._get(self.urls['get_reception_capabilities'].format(id))
-        if response.status_code == 200:
+        get_coroutine = self._get(self.urls['get_reception_capabilities'].format(id))
+        response = yield from get_coroutine
+        if response.status == 200:
             try:
+                text = yield from response.text()
                 return {ReceptionCapability(capability.strip())
-                        for capability in response.text.split(',')}
+                        for capability in text.split(',')}
             except ValueError as exc:
+                yield from response.release()
                 raise ReceptionCapabilitiesError('Invalid reception capability') from exc
         else:
-            raise ReceptionCapabilitiesServerError(response)
+            yield from raise_server_error(response, ReceptionCapabilitiesServerError)
 
+    @asyncio.coroutine
     def get_credits(self):
         """
         Return the number of credits left on the account.
         """
-        response = self._get(self.urls['get_credits'])
-        if response.status_code == 200:
-            return int(response.text)
+        response = yield from self._get(self.urls['get_credits'])
+        if response.status == 200:
+            text = yield from response.text()
+            return int(text)
         else:
-            raise CreditsServerError(response)
+            yield from raise_server_error(response, CreditsServerError)
 
+    @asyncio.coroutine
     def send_simple(self, **data):
         """
         Send a message by using the simple mode.
@@ -219,8 +238,9 @@ class Connection:
 
         Return the ID of the message.
         """
-        return self._send(self.urls['send_simple'], data)
+        return (yield from self._send(self.urls['send_simple'], data))
 
+    @asyncio.coroutine
     def send_e2e(self, **data):
         """
         Send a message by using the end-to-end mode.
@@ -230,8 +250,9 @@ class Connection:
 
         Return the ID of the message.
         """
-        return self._send(self.urls['send_e2e'], data)
+        return (yield from self._send(self.urls['send_e2e'], data))
 
+    @asyncio.coroutine
     def upload(self, data):
         """
         Upload a blob.
@@ -241,8 +262,9 @@ class Connection:
 
         Return the ID of the blob.
         """
-        return self._upload(self.urls['upload_blob'], data)
+        return (yield from self._upload(self.urls['upload_blob'], data))
 
+    @asyncio.coroutine
     def download(self, id):
         """
         Download a blob.
@@ -250,26 +272,28 @@ class Connection:
         Arguments:
             - `id`: The blob ID.
 
-        Return binary data.
+        Return a :class:`aiohttp.ClientResponse` instance.
         """
-        response = self._get(self.urls['download_blob'].format(id))
-        if response.status_code == 200:
-            return response.content
+        response = yield from self._get(self.urls['download_blob'].format(id))
+        if response.status == 200:
+            return response
         else:
-            raise BlobServerError(response)
+            yield from raise_server_error(response, BlobServerError)
 
+    @asyncio.coroutine
     def _get(self, *args, **kwargs):
         """
         Wrapper for :func:`requests.get` that injects the connection's
         Threema ID and its secret.
 
-        Return a :class:`requests.Response` instance.
+        Return a :class:`aiohttp.ClientResponse` instance.
         """
         kwargs.setdefault('params', {})
         kwargs['params'].setdefault('from', self.id)
         kwargs['params'].setdefault('secret', self.secret)
-        return self._session.get(*args, **kwargs)
+        return (yield from self._session.get(*args, **kwargs))
 
+    @asyncio.coroutine
     def _send(self, url, data):
         """
         Send a message.
@@ -285,12 +309,13 @@ class Connection:
         data.setdefault('secret', self.secret)
 
         # Send message
-        response = self._session.post(url, data=data)
-        if response.status_code == 200:
-            return response.text
+        response = yield from self._session.post(url, data=data)
+        if response.status == 200:
+            return (yield from response.text())
         else:
-            raise MessageServerError(response)
+            yield from raise_server_error(response, MessageServerError)
 
+    @asyncio.coroutine
     def _upload(self, url, data):
         """
         Upload a blob.
@@ -307,8 +332,8 @@ class Connection:
         files = {'blob': data}
 
         # Send message
-        response = self._session.post(url, params=params, files=files)
-        if response.status_code == 200:
-            return response.text
+        response = yield from self._session.post(url, params=params, data=files)
+        if response.status == 200:
+            return (yield from response.text())
         else:
-            raise BlobServerError(response)
+            yield from raise_server_error(response, BlobServerError)

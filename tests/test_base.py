@@ -15,5 +15,5 @@ router.add_route('GET', '/', hello)
 class TestPrerequisities:
     def test_server(self, connection, mock_url):
         response = connection._session.get(mock_url)
-        assert response.status_code == 200
+        assert response.status == 200
         assert response.content == b'Hello World'

@@ -2,6 +2,8 @@
 You can modify and use one of the functions below to test the gateway
 service with your end-to-end account.
 """
+import asyncio
+
 from threema.gateway import Connection, MessageError
 from threema.gateway.e2e import TextMessage, ImageMessage, FileMessage
 
@@ -13,6 +15,7 @@ connection = Connection(
 )
 
 
+@asyncio.coroutine
 def send():
     """
     Send a message to a specific Threema ID.
@@ -26,9 +29,10 @@ def send():
         id='ECHOECHO',
         text='私はガラスを食べられます。それは私を傷つけません。'
     )
-    return message.send()
+    return (yield from message.send())
 
 
+@asyncio.coroutine
 def send_cached_key():
     """
     Send a message to a specific Threema ID with an already cached
@@ -40,9 +44,10 @@ def send_cached_key():
         key='public:4a6a1b34dcef15d43cb74de2fd36091be99fbbaf126d099d47d83d919712c72b',
         text='私はガラスを食べられます。それは私を傷つけません。'
     )
-    return message.send()
+    return (yield from message.send())
 
 
+@asyncio.coroutine
 def send_cached_key_file():
     """
     Send a message to a specific Threema ID with an already cached
@@ -54,9 +59,10 @@ def send_cached_key_file():
         key_file='ECHOECHO.txt',
         text='私はガラスを食べられます。それは私を傷つけません。'
     )
-    return message.send()
+    return (yield from message.send())
 
 
+@asyncio.coroutine
 def send_image():
     """
     Send an image to a specific Threema ID.
@@ -70,9 +76,10 @@ def send_image():
         id='ECHOECHO',
         image_path='res/threema.jpg'
     )
-    return message.send()
+    return (yield from message.send())
 
 
+@asyncio.coroutine
 def send_file():
     """
     Send a file to a specific Threema ID.
@@ -86,9 +93,10 @@ def send_file():
         id='ECHOECHO',
         file_path='res/some_file.zip'
     )
-    return message.send()
+    return (yield from message.send())
 
 
+@asyncio.coroutine
 def send_file_with_thumbnail():
     """
     Send a file to a specific Threema ID including a thumbnail.
@@ -103,20 +111,22 @@ def send_file_with_thumbnail():
         file_path='res/some_file.zip',
         thumbnail_path='res/some_file_thumb.png'
     )
-    return message.send()
+    return (yield from message.send())
 
 
+@asyncio.coroutine
 def main():
     try:
-        send()
-        send_cached_key()
-        send_cached_key_file()
-        send_image()
-        send_file()
-        send_file_with_thumbnail()
+        yield from send()
+        yield from send_cached_key()
+        yield from send_cached_key_file()
+        yield from send_image()
+        yield from send_file()
+        yield from send_file_with_thumbnail()
     except MessageError as exc:
         print('Error:', exc)
 
 
 if __name__ == '__main__':
-    main()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())

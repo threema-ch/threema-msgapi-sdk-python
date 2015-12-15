@@ -9,6 +9,7 @@ import binascii
 import struct
 import mimetypes
 import json
+import asyncio
 
 import libnacl
 import libnacl.public
@@ -194,16 +195,17 @@ class Message(metaclass=abc.ABCMeta):
         self.key_file = key_file
 
     @property
+    @asyncio.coroutine
     def key(self):
         """
         Get the public key of the recipient. Will be request from the
-        server if necessary.
+        server if necessary. Note that the getter is a coroutine!
 
         Set the public key of the recipient. The key will be decoded
         if required.
         """
         if self._key is None:
-            self._key = self.connection.get_public_key(self.id)
+            self._key = yield from self.connection.get_public_key(self.id)
         return self._key
 
     @key.setter
@@ -234,6 +236,7 @@ class Message(metaclass=abc.ABCMeta):
         Send a message.
         """
 
+    @asyncio.coroutine
     def _encrypt(self, message, private=None, public=None):
         """
         Encrypt a message.
@@ -249,11 +252,12 @@ class Message(metaclass=abc.ABCMeta):
         # Keys specified?
         if private is None and public is None:
             private = self.connection.key
-            public = self.key
+            public = yield from self.key
 
         # Encrypt
         return encrypt(private, public, message)
 
+    @asyncio.coroutine
     def _decrypt(self, nonce, data, private=None, public=None):
         """
         Decrypt a message.
@@ -269,11 +273,12 @@ class Message(metaclass=abc.ABCMeta):
         # Keys specified?
         if private is None and public is None:
             private = self.connection.key
-            public = self.key
+            public = yield from self.key
 
         # Decrypt
         return decrypt(private, public, nonce, data)
 
+    @asyncio.coroutine
     def _pk_encrypt_raw(self, data, private=None, public=None):
         """
         Encrypt data.
@@ -289,11 +294,12 @@ class Message(metaclass=abc.ABCMeta):
         # Keys specified?
         if private is None and public is None:
             private = self.connection.key
-            public = self.key
+            public = yield from self.key
 
         # Encrypt
         return pk_encrypt_raw(private, public, data)
 
+    @asyncio.coroutine
     def _pk_decrypt_raw(self, nonce, data, private=None, public=None):
         """
         Decrypt data.
@@ -309,11 +315,12 @@ class Message(metaclass=abc.ABCMeta):
         # Keys specified?
         if private is None and public is None:
             private = self.connection.key
-            public = self.key
+            public = yield from self.key
 
         # Decrypt
         return pk_decrypt_raw(private, public, nonce, data)
 
+    @asyncio.coroutine
     def _check_capabilities(self, required_capabilities):
         """
         Test for capabilities of a recipient.
@@ -326,7 +333,8 @@ class Message(metaclass=abc.ABCMeta):
         capabilities are missing.
         """
         # Check capabilities of a recipient
-        recipient_capabilities = self.connection.get_reception_capabilities(self.id)
+        capabilities_coroutine = self.connection.get_reception_capabilities(self.id)
+        recipient_capabilities = yield from capabilities_coroutine
         if not required_capabilities <= recipient_capabilities:
             missing_capabilities = required_capabilities - recipient_capabilities
             raise MissingCapabilityError(missing_capabilities)
@@ -409,6 +417,7 @@ class TextMessage(Message):
     def __str__(self):
         return self.text
 
+    @asyncio.coroutine
     def encrypt(self, *args, **kwargs):
         """
         Encrypt the text message.
@@ -426,8 +435,9 @@ class TextMessage(Message):
         data = self.type.value + text
 
         # Encrypt
-        return self._encrypt(data, *args, **kwargs)
+        return (yield from self._encrypt(data, *args, **kwargs))
 
+    @asyncio.coroutine
     def send(self):
         """
         Send the encrypted text message.
@@ -435,14 +445,14 @@ class TextMessage(Message):
         Return the ID of the message.
         """
         # Encrypt
-        nonce, message = self.encrypt()
+        nonce, message = yield from self.encrypt()
 
         # Send message
-        return self.connection.send_e2e(**{
+        return (yield from self.connection.send_e2e(**{
             'to': self.id,
             'nonce': binascii.hexlify(nonce),
             'box': binascii.hexlify(message)
-        })
+        }))
 
 
 class ImageMessage(Message):
@@ -496,6 +506,7 @@ class ImageMessage(Message):
                 raise UnsupportedMimeTypeError(mime_type)
             self.mime_type = mime_type
 
+    @asyncio.coroutine
     def send(self):
         """
         Send the encrypted image message.
@@ -503,7 +514,7 @@ class ImageMessage(Message):
         Return the ID of the message.
         """
         # Check capabilities of recipient
-        self._check_capabilities(self.required_capabilities)
+        yield from self._check_capabilities(self.required_capabilities)
 
         # Read the content of the file if not already read
         if self.image is None:
@@ -514,8 +525,8 @@ class ImageMessage(Message):
                 raise MessageError('Fetching content of image failed') from exc
 
         # Encrypt and upload image
-        image_nonce, image_data = self._pk_encrypt_raw(self.image)
-        blob_id = binascii.unhexlify(self.connection.upload(image_data))
+        image_nonce, image_data = yield from self._pk_encrypt_raw(self.image)
+        blob_id = binascii.unhexlify((yield from self.connection.upload(image_data)))
 
         # Pack payload
         data = struct.pack(
@@ -524,14 +535,14 @@ class ImageMessage(Message):
         )
 
         # Encrypt
-        nonce, message = self._encrypt(data)
+        nonce, message = yield from self._encrypt(data)
 
         # Send message
-        return self.connection.send_e2e(**{
+        return (yield from self.connection.send_e2e(**{
             'to': self.id,
             'nonce': binascii.hexlify(nonce),
             'box': binascii.hexlify(message)
-        })
+        }))
 
 
 class FileMessage(Message):
@@ -587,6 +598,7 @@ class FileMessage(Message):
 
             # TODO: Check the mime type of the thumbnail?
 
+    @asyncio.coroutine
     def send(self):
         """
         Send the encrypted file message.
@@ -594,7 +606,7 @@ class FileMessage(Message):
         Return the ID of the message.
         """
         # Check capabilities of recipient
-        self._check_capabilities(self.required_capabilities)
+        yield from self._check_capabilities(self.required_capabilities)
 
         # Read the content of the file if not already read
         if self.file_content is None:
@@ -609,7 +621,7 @@ class FileMessage(Message):
 
         # Encrypt and upload file
         _, file_data = sk_encrypt_raw(key, self.file_content, nonce=self.nonce['file'])
-        file_id = self.connection.upload(file_data)
+        file_id = yield from self.connection.upload(file_data)
 
         # Build JSON
         content = {
@@ -634,7 +646,7 @@ class FileMessage(Message):
             # Encrypt and upload thumbnail
             _, thumbnail_data = sk_encrypt_raw(key, self.thumbnail_content,
                                                nonce=self.nonce['thumbnail'])
-            thumbnail_id = self.connection.upload(thumbnail_data)
+            thumbnail_id = yield from self.connection.upload(thumbnail_data)
 
             # Update JSON
             content['t'] = thumbnail_id
@@ -644,11 +656,11 @@ class FileMessage(Message):
         data = self.type.value + content
 
         # Encrypt
-        nonce, message = self._encrypt(data)
+        nonce, message = yield from self._encrypt(data)
 
         # Send message
-        return self.connection.send_e2e(**{
+        return (yield from self.connection.send_e2e(**{
             'to': self.id,
             'nonce': binascii.hexlify(nonce),
             'box': binascii.hexlify(message)
-        })
+        }))

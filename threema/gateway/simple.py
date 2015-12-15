@@ -2,6 +2,7 @@
 Provides classes for the simple mode.
 """
 import abc
+import asyncio
 
 from .exception import MessageError
 
@@ -48,11 +49,12 @@ class TextMessage(Message):
         self.email = email
         self.text = text
 
+    @asyncio.coroutine
     def send(self):
         """
         Send the created message.
 
-        Return an instance of a :class:`requests.Response`.
+        Return the ID of the sent message.
         """
         recipient = {
             'to': self.id,
@@ -73,4 +75,4 @@ class TextMessage(Message):
         # Send message
         data = {key: value for key, value in recipient.items() if key is not None}
         data['text'] = self.text
-        return self.connection.send_simple(**data)
+        return (yield from self.connection.send_simple(**data))

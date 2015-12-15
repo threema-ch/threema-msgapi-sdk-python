@@ -4,12 +4,25 @@ The command line interface for the Threema gateway service.
 """
 import re
 import binascii
+import functools
+import asyncio
 
 import click
 
 from threema.gateway import __version__ as _version
 from threema.gateway import feature_level, simple, e2e, util, Connection
 from threema.gateway.key import HMAC, Key
+
+
+def aio_run(func):
+    func = asyncio.coroutine(func)
+
+    def _wrapper(*args, **kwargs):
+        loop = asyncio.get_event_loop()
+        task = loop.create_task(func(*args, **kwargs))
+        loop.run_until_complete(task)
+        return task.result()
+    return functools.update_wrapper(_wrapper, func)
 
 
 @click.group()
@@ -35,6 +48,7 @@ and then the encrypted box (hex).
 """)
 @click.argument('private_key')
 @click.argument('public_key')
+@aio_run
 def encrypt(private_key, public_key):
     # Get key instances
     private_key = util.read_key_or_key_file(private_key, Key.Type.private)
@@ -44,7 +58,8 @@ def encrypt(private_key, public_key):
     text = click.get_text_stream('stdin').read()
 
     # Print nonce and message as hex
-    nonce, message = e2e.TextMessage(text=text).encrypt(private_key, public_key)
+    coroutine = e2e.TextMessage(text=text).encrypt(private_key, public_key)
+    nonce, message = yield from coroutine
     click.echo()
     click.echo(binascii.hexlify(nonce))
     click.echo(binascii.hexlify(message))
@@ -142,6 +157,7 @@ Prints the message ID on success.
 @click.argument('to')
 @click.argument('from')
 @click.argument('secret')
+@aio_run
 def send_simple(**arguments):
     # Read message from stdin
     text = click.get_text_stream('stdin').read().strip()
@@ -158,7 +174,7 @@ def send_simple(**arguments):
 
     # Send message
     click.echo()
-    click.echo(message.send())
+    click.echo((yield from message.send()))
 
 
 @cli.command(short_help='Send a text message using end-to-end mode.', help="""
@@ -173,6 +189,7 @@ Prints the message ID on success.
 @click.option('-k', '--public-key', help="""
 The public key of the recipient. Will be fetched automatically if not provided.
 """)
+@aio_run
 def send_e2e(**arguments):
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
@@ -201,7 +218,7 @@ def send_e2e(**arguments):
 
     # Send message
     click.echo()
-    click.echo(message.send())
+    click.echo((yield from message.send()))
 
 
 @cli.command(short_help='Send an image using end-to-end mode.', help="""
@@ -218,6 +235,7 @@ Prints the message ID on success.
 @click.option('-k', '--public-key', help="""
 The public key of the recipient. Will be fetched automatically if not provided.
 """)
+@aio_run
 def send_image(**arguments):
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
@@ -262,6 +280,7 @@ The public key of the recipient. Will be fetched automatically if not provided.
 @click.option('-t', '--thumbnail-path', help="""
 The relative or absolute path to a thumbnail.
 """)
+@aio_run
 def send_file(**arguments):
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
@@ -300,6 +319,7 @@ FROM is the API identity and SECRET is the API secret.
 @click.option('-e', '--email', help='An email address.')
 @click.option('-p', '--phone', help='A phone number in E.164 format.')
 @click.option('-i', '--id', help='A Threema ID.')
+@aio_run
 def lookup(**arguments):
     modes = ['email', 'phone', 'id']
     mode = {key: value for key, value in arguments.items()
@@ -313,9 +333,10 @@ def lookup(**arguments):
     # Create connection and do lookup
     connection = Connection(arguments['from'], secret=arguments['secret'])
     if 'id' in mode:
-        click.echo(Key.encode(connection.get_public_key(arguments['id'])))
+        public_key = (yield from connection.get_public_key(arguments['id']))
+        click.echo(Key.encode(public_key))
     else:
-        click.echo(connection.get_id(**mode))
+        click.echo((yield from connection.get_id(**mode)))
 
 
 @cli.command(short_help='Lookup the reception capabilities of a Threema ID', help="""
@@ -326,12 +347,13 @@ Prints a set of capabilities in alphabetical order on success.
 @click.argument('from')
 @click.argument('secret')
 @click.argument('id')
+@aio_run
 def capabilities(**arguments):
     # Create connection
     connection = Connection(arguments['from'], arguments['secret'])
 
     # Lookup and format returned capabilities
-    capabilities_ = connection.get_reception_capabilities(arguments['id'])
+    capabilities_ = (yield from connection.get_reception_capabilities(arguments['id']))
     click.echo(', '.join(sorted(capability.value for capability in capabilities_)))
 
 
@@ -342,12 +364,13 @@ FROM is the API identity and SECRET is the API secret.
 """)
 @click.argument('from')
 @click.argument('secret')
+@aio_run
 def credits(**arguments):
     # Create connection
     connection = Connection(arguments['from'], arguments['secret'])
 
     # Get and print credits
-    click.echo(connection.get_credits())
+    click.echo((yield from connection.get_credits()))
 
 
 if __name__ == '__main__':
