@@ -34,6 +34,8 @@ def cli(ctx, verify_fingerprint, fingerprint):
     """
     Command Line Interface. Use --help for details.
     """
+    if fingerprint is not None:
+        fingerprint = binascii.unhexlify(fingerprint)
     ctx.obj = {
         'verify_fingerprint': verify_fingerprint,
         'fingerprint': fingerprint

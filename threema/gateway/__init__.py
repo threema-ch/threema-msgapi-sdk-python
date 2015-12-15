@@ -35,7 +35,7 @@ from .util import raise_server_error
 
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
-__version__ = '2.1.3'
+__version__ = '2.1.4'
 __all__ = (
     'feature_level',
     'ReceptionCapability',
@@ -78,9 +78,9 @@ class Connection:
         - `verify_fingerprint`: Set to `True` if you want to verify the
           TLS certificate of the Threema Gateway Server by a
           fingerprint. (Recommended)
-        - `fingerprint`: A hex-encoded fingerprint of an DER-encoded
-          TLS certificate. Will fall back to a stored fingerprint which
-          will be invalid as soon as the certificate expires.
+        - `fingerprint`: A binary fingerprint of an DER-encoded TLS
+          certificate. Will fall back to a stored fingerprint which will
+          be invalid as soon as the certificate expires.
     """
     fingerprint = b'm\x7f\xa3\x1d\x80\xdcV\xf9\xc1\xed\x17\x98*\xd6\x01\x7f'
     urls = {
