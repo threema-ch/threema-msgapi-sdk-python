@@ -170,13 +170,13 @@ def upload_blob(request):
         api_identity = (request.GET['from'], request.GET['secret'])
         if api_identity not in pytest.msgapi.api_identities:
             return web.Response(status=401)
-    except GatewayKeyError:
+    except KeyError:
         return web.Response(status=401)
 
     try:
         # Get blob
         blob = data['blob'].file.read()
-    except GatewayKeyError:
+    except KeyError:
         # Note: This status code might not be intended and may change in the future
         return web.Response(status=500)
 
@@ -208,7 +208,7 @@ def download_blob(request):
     # Get blob
     try:
         blob = _blobs[blob_id]
-    except GatewayKeyError:
+    except KeyError:
         return web.Response(status=404)
     else:
         return web.Response(
