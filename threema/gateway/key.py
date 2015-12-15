@@ -9,6 +9,8 @@ import libnacl.public
 import libnacl.secret
 import libnacl.encode
 
+from .exception import *
+
 __all__ = (
     'HMAC',
     'Key',
@@ -70,12 +72,12 @@ class Key:
         try:
             type_, key = encoded_key.split(Key.separator)
         except ValueError as exc:
-            raise KeyError('Invalid key format') from exc
+            raise GatewayKeyError('Invalid key format') from exc
         type_ = Key.Type(type_)
 
         # Check type
         if type_ != expected_type:
-            raise KeyError('Invalid key type: {}, expected: {}'.format(
+            raise GatewayKeyError('Invalid key type: {}, expected: {}'.format(
                 type_, expected_type
             ))
 
@@ -110,7 +112,7 @@ class Key:
             type_ = Key.Type.public
             key = libnacl.encode.hex_encode(libnacl_key.pk)
         else:
-            raise KeyError('Unknown key type: {}'.format(libnacl_key))
+            raise GatewayKeyError('Unknown key type: {}'.format(libnacl_key))
 
         # Encode key
         return Key.separator.join((type_.value, key.decode('utf-8')))

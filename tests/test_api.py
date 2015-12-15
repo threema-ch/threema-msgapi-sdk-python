@@ -170,16 +170,18 @@ def upload_blob(request):
         api_identity = (request.GET['from'], request.GET['secret'])
         if api_identity not in pytest.msgapi.api_identities:
             return web.Response(status=401)
-    except KeyError:
+    except GatewayKeyError:
         return web.Response(status=401)
 
     try:
-        # Get blob and generate id
+        # Get blob
         blob = data['blob'].file.read()
-        blob_id = hashlib.md5(blob).hexdigest()[16:]
-    except KeyError:
+    except GatewayKeyError:
         # Note: This status code might not be intended and may change in the future
         return web.Response(status=500)
+
+    # Generate ID
+    blob_id = hashlib.md5(blob).hexdigest()[16:]
 
     # Process
     if request.GET['from'] == pytest.msgapi.nocredit_id:
@@ -206,7 +208,7 @@ def download_blob(request):
     # Get blob
     try:
         blob = _blobs[blob_id]
-    except KeyError:
+    except GatewayKeyError:
         return web.Response(status=404)
     else:
         return web.Response(
@@ -418,6 +420,62 @@ class TestCredits:
 
     def test_valid(self, connection):
         assert connection.get_credits() == 100
+
+
+class TestUploadBlob:
+    def test_invalid_identity(self, invalid_connection):
+        with pytest.raises(BlobServerError) as exc_info:
+            invalid_connection.upload(b'\x01')
+        assert exc_info.value.response.status_code == 401
+
+    def test_insufficient_credits(self, nocredit_connection):
+        with pytest.raises(BlobServerError) as exc_info:
+            nocredit_connection.upload(b'\x01')
+        assert exc_info.value.response.status_code == 402
+
+    def test_just_ok(self, connection):
+        blob_id = connection.upload(bytes(20 * (2**20)))
+        assert len(blob_id) == 16
+        # Note: Remove big blob because further tests may hang
+        del _blobs[blob_id]
+
+    def test_too_big(self, connection):
+        with pytest.raises(BlobServerError) as exc_info:
+            blob_id = connection.upload(bytes((20 * (2**20)) + 1))
+            # Note: Remove big blob because further tests may hang
+            del _blobs[blob_id]
+        assert exc_info.value.response.status_code == 413
+
+    def test_zero(self, connection):
+        with pytest.raises(BlobServerError) as exc_info:
+            connection.upload(b'')
+        assert exc_info.value.response.status_code == 400
+
+    def test_file(self, connection):
+        assert len(connection.upload(b'\x01')) == 16
+
+
+class TestDownloadBlob:
+    def test_invalid_identity(self, invalid_connection, blob_id):
+        with pytest.raises(BlobServerError) as exc_info:
+            invalid_connection.download(blob_id)
+        assert exc_info.value.response.status_code == 401
+
+    def test_invalid_id(self, connection):
+        with pytest.raises(BlobServerError) as exc_info:
+            connection.download('f' * 15)
+        assert exc_info.value.response.status_code == 404
+
+    def test_unknown_id(self, connection):
+        with pytest.raises(BlobServerError) as exc_info:
+            connection.download('f' * 16)
+        assert exc_info.value.response.status_code == 404
+
+    def test_file(self, connection, blob_id, blob):
+        assert connection.download(blob_id) == blob
+
+    def test_no_credits(self, nocredit_connection, blob_id, blob):
+        assert nocredit_connection.download(blob_id) == blob
 
 
 class TestSendSimple:

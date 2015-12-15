@@ -6,7 +6,7 @@ __all__ = (
     'GatewayServerError',
     'IDError',
     'IDServerError',
-    'KeyError',
+    'GatewayKeyError',
     'KeyServerError',
     'ReceptionCapabilitiesError',
     'ReceptionCapabilitiesServerError',
@@ -47,7 +47,7 @@ class GatewayServerError(GatewayError):
         # Return description for status code
         try:
             return self.status_description[status_code]
-        except KeyError:
+        except GatewayKeyError:
             return 'Unknown error, status code: {}'.format(status_code)
 
 
@@ -70,14 +70,17 @@ class IDServerError(IDError, GatewayServerError):
     }
 
 
-# noinspection PyShadowingBuiltins
-class KeyError(GatewayError):
+class GatewayKeyError(GatewayError):
     """
     A problem with a key occurred.
+
+    .. versionchanged:: 1.1.6
+       Previous versions shadowed the builtin exception
+       :class:`KeyError`.
     """
 
 
-class KeyServerError(KeyError, GatewayServerError):
+class KeyServerError(GatewayKeyError, GatewayServerError):
     """
     The server has responded with an error code while fetching a
     public key.

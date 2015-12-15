@@ -136,3 +136,13 @@ def nocredit_connection(connection):
     nocredit_connection_ = copy.deepcopy(connection)
     nocredit_connection_.id = pytest.msgapi.nocredit_id
     return nocredit_connection_
+
+
+@pytest.fixture(scope='module')
+def blob():
+    return b'\x01\x02\x03'
+
+
+@pytest.fixture(scope='module')
+def blob_id(connection, blob):
+    return connection.upload(blob)

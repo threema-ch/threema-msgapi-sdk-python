@@ -33,7 +33,7 @@ from threema.gateway.key import Key
 
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
-__version__ = '1.1.5'
+__version__ = '1.1.6'
 __all__ = (
     'ReceptionCapability',
     'Connection',
@@ -99,7 +99,7 @@ class Connection:
         if required.
         """
         if self._key is None:
-            raise KeyError("Sender's private key not specified")
+            raise GatewayKeyError("Sender's private key not specified")
         return self._key
 
     @key.setter
