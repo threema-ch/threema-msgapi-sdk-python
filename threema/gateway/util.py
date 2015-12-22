@@ -3,11 +3,14 @@ Utility functions.
 """
 import asyncio
 
+import libnacl
+
 from .key import Key
 
 __all__ = (
     'read_key_or_key_file',
     'raise_server_error',
+    'randint',
 )
 
 
@@ -50,3 +53,13 @@ def raise_server_error(response, error):
     status = response.status
     yield from response.release()
     raise error(status)
+
+
+def randint(a, b):
+    """
+    Return a cryptographically secure random integer N such that
+    ``a <= N <= b``.
+    """
+    n = libnacl.randombytes_uniform(b) + a
+    assert a <= n <= b
+    return n

@@ -4,7 +4,6 @@ Provides classes and functions for the end-to-end encryption mode.
 import abc
 import enum
 import os
-import random
 import binascii
 import struct
 import mimetypes
@@ -16,7 +15,7 @@ import libnacl.public
 import libnacl.secret
 import libnacl.encode
 
-from . import ReceptionCapability
+from . import ReceptionCapability, util
 from .exception import *
 from .key import Key
 
@@ -45,7 +44,7 @@ def encrypt(private, public, data, nonce=None):
     data.
     """
     # Generate 0 < padding < 256
-    padding_length = random.randint(1, 255)
+    padding_length = util.randint(1, 255)
 
     # Add padding to the payload
     padding = bytes([padding_length] * padding_length)
