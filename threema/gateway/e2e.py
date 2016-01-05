@@ -78,6 +78,8 @@ def decrypt(private, public, nonce, data):
     type_ = Message.Type(type_)
     if type_ == Message.Type.text_message:
         return TextMessage(payload=payload)
+    elif type_ == Message.Type.group_text_message:
+        return TextMessage(payload=payload, group=True)
     elif type_ == Message.Type.delivery_receipt:
         return DeliveryReceipt(payload=payload)
 
@@ -182,6 +184,14 @@ class Message(metaclass=abc.ABCMeta):
         image_message = b'\x02'
         file_message = b'\x17'
         delivery_receipt = b'\x80'
+
+        """
+        Group Message Types
+        """
+        group_text_message = b'A'
+        group_update = b'K'
+        group_closed = b'L'
+        group_invitation = b'J'
 
     # noinspection PyShadowingBuiltins
     def __init__(self, type_, connection=None, id=None, key=None, key_file=None):
@@ -399,7 +409,7 @@ class TextMessage(Message):
         - `payload`: The remaining byte sequence of a decrypted
           message.
     """
-    def __init__(self, text=None, payload=None, **kwargs):
+    def __init__(self, text=None, payload=None, group=None, **kwargs):
         super().__init__(Message.Type.text_message, **kwargs)
 
         # Validate arguments
@@ -408,8 +418,10 @@ class TextMessage(Message):
             raise MessageError("Either 'text' or 'payload' need to be specified.")
 
         # Unpack payload or store text
-        if payload is not None:
-            self.text = payload.decode('utf-8')
+        if payload is not None and group is None:
+            self.text =  payload.decode('utf-8')
+        elif payload is not None and group is True:
+            self.text = payload[16:].decode('utf-8')
         else:
             self.text = text
 
