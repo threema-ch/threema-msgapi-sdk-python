@@ -33,7 +33,7 @@ setup(
         'pytest-asyncio>=0.2.0',
     ],
     include_package_data=True,
-
+    scripts=['threema-gateway'],
 
     # PyPI metadata
     author='Lennart Grahl',

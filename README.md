@@ -1,5 +1,3 @@
-**If you are confused about why the repository has been moved, please read [Issue #5](https://github.com/lgrahl/threema-msgapi-sdk-python/issues/5).**
-
 # Threema Gateway API
 
 **threema-gateway** is a Python 3 module for the Threema gateway service. This API can
@@ -53,11 +51,11 @@ to work.
 
 ## Command Line Usage
 
-The file ``threema-gateway`` provides a command line interface for the Threema gateway.
+The script ``threema-gateway`` provides a command line interface for the Threema gateway.
 Run the following command to see usage information:
 
 ```
-$ ./threema-gateway --help
+$ threema-gateway --help
 ```
 
 ## Feature Levels
@@ -71,5 +69,5 @@ $ ./threema-gateway --help
 You can see the implemented feature level by invoking the following command:
 
 ```
-$ ./threema-gateway version
+$ threema-gateway version
 ```
