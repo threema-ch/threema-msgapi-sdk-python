@@ -44,7 +44,7 @@ If you are using a virtual environment, activate it first.
 Install the module by running:
 
 ```
-$ pip install git+https://github.com/lgrahl/msgapi-sdk-python.git
+$ pip install git+https://github.com/lgrahl/threema-msgapi-sdk-python.git
 ```
 
 The dependency ``libnacl`` will be installed automatically. However, you may need to
