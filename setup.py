@@ -23,6 +23,7 @@ setup(
     packages=find_packages(),
     namespace_packages=['threema'],
     install_requires=[
+        'py_lru_cache>=0.1.4',
         'libnacl>=1.4.3',
         'click>=5.1',
         'aiohttp>=0.19.0',
