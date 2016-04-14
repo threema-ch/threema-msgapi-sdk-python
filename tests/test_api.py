@@ -282,6 +282,29 @@ class TestLookupPublicKey:
         key = yield from connection.get_public_key('ECHOECHO')
         assert key.hex_pk() == _echoecho_key
 
+    @pytest.mark.asyncio
+    def test_cache_expiration(self, connection):
+        connection.get_public_key.cache_clear()
+        connection.get_public_key.cache.expiration = 0.05
+        for _ in range(10):
+            yield from self.test_valid_id(connection)
+        cache_info = connection.get_public_key.cache_info()
+        assert cache_info.misses == 1
+        assert cache_info.hits == 9
+        yield from asyncio.sleep(0.2)
+        yield from self.test_valid_id(connection)
+        cache_info = connection.get_public_key.cache_info()
+        assert cache_info.misses == 2
+
+    @pytest.mark.asyncio
+    def test_cache_hits(self, connection):
+        connection.get_public_key.cache_clear()
+        for _ in range(1000):
+            yield from self.test_valid_id(connection)
+        cache_info = connection.get_public_key.cache_info()
+        assert cache_info.misses == 1
+        assert cache_info.hits == 999
+
 
 class TestLookupIDByPhone:
     @pytest.mark.asyncio
@@ -306,6 +329,15 @@ class TestLookupIDByPhone:
     def test_valid_phone(self, connection):
         id_ = yield from connection.get_id(phone='44123456789')
         assert id_ == 'ECHOECHO'
+
+    @pytest.mark.asyncio
+    def test_cache_hits(self, connection):
+        connection.get_id.cache_clear()
+        for _ in range(1000):
+            yield from self.test_valid_phone(connection)
+        cache_info = connection.get_id.cache_info()
+        assert cache_info.misses == 1
+        assert cache_info.hits == 999
 
 
 class TestLookupIDByPhoneHash:
@@ -349,6 +381,15 @@ class TestLookupIDByPhoneHash:
         id_ = yield from connection.get_id(phone_hash=phone_hash)
         assert id_ == 'ECHOECHO'
 
+    @pytest.mark.asyncio
+    def test_cache_hits(self, connection):
+        connection.get_id.cache_clear()
+        for _ in range(1000):
+            yield from self.test_valid_phone_hash(connection)
+        cache_info = connection.get_id.cache_info()
+        assert cache_info.misses == 1
+        assert cache_info.hits == 999
+
 
 class TestLookupIDByEmail:
     @pytest.mark.asyncio
@@ -373,6 +414,15 @@ class TestLookupIDByEmail:
     def test_valid_email(self, connection):
         id_ = yield from connection.get_id(email='echoecho@example.com')
         assert id_ == 'ECHOECHO'
+
+    @pytest.mark.asyncio
+    def test_cache_hits(self, connection):
+        connection.get_id.cache_clear()
+        for _ in range(1000):
+            yield from self.test_valid_email(connection)
+        cache_info = connection.get_id.cache_info()
+        assert cache_info.misses == 1
+        assert cache_info.hits == 999
 
 
 class TestLookupIDByEmailHash:
@@ -415,6 +465,15 @@ class TestLookupIDByEmailHash:
         email_hash = '45a13d422b40f81936a9987245d3f6d9064c90607273af4f578246b4484669e2'
         id_ = yield from connection.get_id(email_hash=email_hash)
         assert id_ == 'ECHOECHO'
+
+    @pytest.mark.asyncio
+    def test_cache_hits(self, connection):
+        connection.get_id.cache_clear()
+        for _ in range(1000):
+            yield from self.test_valid_email_hash(connection)
+        cache_info = connection.get_id.cache_info()
+        assert cache_info.misses == 1
+        assert cache_info.hits == 999
         
         
 class TestReceptionCapabilities:
@@ -445,6 +504,15 @@ class TestReceptionCapabilities:
             ReceptionCapability.video,
             ReceptionCapability.file
         }
+
+    @pytest.mark.asyncio
+    def test_cache_hits(self, connection):
+        connection.get_reception_capabilities.cache_clear()
+        for _ in range(1000):
+            yield from self.test_valid_id(connection)
+        cache_info = connection.get_reception_capabilities.cache_info()
+        assert cache_info.misses == 1
+        assert cache_info.hits == 999
 
 
 class TestCredits:
