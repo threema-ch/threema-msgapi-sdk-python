@@ -15,7 +15,7 @@ def send_via_id(connection):
     """
     message = TextMessage(
         connection=connection,
-        id='ECHOECHO',
+        to_id='ECHOECHO',
         text='Hello from the world of Python!'
     )
     return (yield from message.send())

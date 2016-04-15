@@ -214,7 +214,7 @@ def send_e2e(ctx, **arguments):
 
     # Create connection
     connection = Connection(
-        id=arguments['from'],
+        identity=arguments['from'],
         secret=arguments['secret'],
         key=private_key,
         **ctx.obj

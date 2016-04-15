@@ -19,7 +19,7 @@ def send(connection):
     """
     message = TextMessage(
         connection=connection,
-        id='ECHOECHO',
+        to_id='ECHOECHO',
         text='私はガラスを食べられます。それは私を傷つけません。'
     )
     return (yield from message.send())
@@ -33,7 +33,7 @@ def send_cached_key(connection):
     """
     message = TextMessage(
         connection=connection,
-        id='ECHOECHO',
+        to_id='ECHOECHO',
         key='public:4a6a1b34dcef15d43cb74de2fd36091be99fbbaf126d099d47d83d919712c72b',
         text='私はガラスを食べられます。それは私を傷つけません。'
     )
@@ -48,7 +48,7 @@ def send_cached_key_file(connection):
     """
     message = TextMessage(
         connection=connection,
-        id='ECHOECHO',
+        to_id='ECHOECHO',
         key_file='ECHOECHO.txt',
         text='私はガラスを食べられます。それは私を傷つけません。'
     )
@@ -66,7 +66,7 @@ def send_image(connection):
     """
     message = ImageMessage(
         connection=connection,
-        id='ECHOECHO',
+        to_id='ECHOECHO',
         image_path='res/threema.jpg'
     )
     return (yield from message.send())
@@ -83,7 +83,7 @@ def send_file(connection):
     """
     message = FileMessage(
         connection=connection,
-        id='ECHOECHO',
+        to_id='ECHOECHO',
         file_path='res/some_file.zip'
     )
     return (yield from message.send())
@@ -100,7 +100,7 @@ def send_file_with_thumbnail(connection):
     """
     message = FileMessage(
         connection=connection,
-        id='ECHOECHO',
+        to_id='ECHOECHO',
         file_path='res/some_file.zip',
         thumbnail_path='res/some_file_thumb.png'
     )
@@ -110,7 +110,7 @@ def send_file_with_thumbnail(connection):
 @asyncio.coroutine
 def main():
     connection = Connection(
-        id='*YOUR_GATEWAY_THREEMA_ID',
+        identity='*YOUR_GATEWAY_THREEMA_ID',
         secret='YOUR_GATEWAY_THREEMA_ID_SECRET',
         key='private:YOUR_PRIVATE_KEY'
     )

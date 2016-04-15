@@ -93,7 +93,7 @@ def connection(request, server, mock_url):
     # Note: We're not doing anything with the server but obviously the
     # server needs to be started to be able to connect
     connection_ = threema.gateway.Connection(
-        id=pytest.msgapi.id,
+        identity=pytest.msgapi.id,
         secret=pytest.msgapi.secret,
         key=pytest.msgapi.key
     )

@@ -186,6 +186,7 @@ class Message(metaclass=abc.ABCMeta):
                 message = "Parameter 'to_id' is required for outgoing messages."
                 raise ValueError(message)
             from_id = connection.id
+            message_id = date = None
         elif direction == self.Direction.incoming:
             keys = ('from_id', 'message_id', 'date')
             if any((key not in from_data for key in keys)):
@@ -193,6 +194,8 @@ class Message(metaclass=abc.ABCMeta):
                 raise ValueError(message.format(keys))
             from_id = from_data['from_id']
             to_id = connection.id
+            message_id = from_data['message_id']
+            date = from_data['date']
         else:
             raise ValueError('Invalid direction value')
 
@@ -208,8 +211,8 @@ class Message(metaclass=abc.ABCMeta):
         # Values depending on direction
         self.to_id = to_id  # Always set
         self.from_id = from_id  # Always set
-        self.message_id = from_data.get('message_id')  # None if outgoing
-        self.date = from_data.get('date')  # None if outgoing
+        self.message_id = message_id  # None if outgoing
+        self.date = date  # None if outgoing
 
     @property
     def type(self):
@@ -282,7 +285,7 @@ class Message(metaclass=abc.ABCMeta):
         writer.writeexactly(bytes([padding_length] * padding_length))
 
         # Encrypt message
-        nonce, data = self._encrypt(writer.values())
+        nonce, data = yield from self._encrypt(writer.getvalue())
 
         # Send message
         return (yield from self._connection.send_e2e(**{
@@ -408,7 +411,7 @@ class Message(metaclass=abc.ABCMeta):
         Return a tuple containing our private key and the public key of
         the recipient.
         """
-        private = self._connection.public_key
+        private = self._connection.key
         public = yield from self.public_key
         return private, public
 
@@ -425,7 +428,7 @@ class Message(metaclass=abc.ABCMeta):
             - `parameters`: Parameters passed to
               :method:`Message.unpack`.
         """
-        private = connection.public_key
+        private = connection.key
         public = yield from connection.get_public_key(parameters['from_id'])
         return private, public
 
@@ -555,7 +558,7 @@ class TextMessage(Message):
         super().__init__(connection, Message.Type.text_message,
                          from_data=from_data, **kwargs)
         if self._direction == self.Direction.outgoing:
-            if self.text is None:
+            if text is None:
                 raise ValueError("Parameter 'text' required")
             self.text = text
         else:
@@ -621,7 +624,7 @@ class ImageMessage(Message):
         ReceptionCapability.image
     }
 
-    _formatter = '<1s{}sI{}s'.format(BLOB_ID_LENGTH, libnacl.crypto_box_NONCEBYTES)
+    _formatter = '<{}sI{}s'.format(BLOB_ID_LENGTH, libnacl.crypto_box_NONCEBYTES)
 
     def __init__(
             self, connection,
@@ -632,8 +635,8 @@ class ImageMessage(Message):
                          from_data=from_data, **kwargs)
         if self._direction == self.Direction.outgoing:
             image_and_mime = all((param is not None for param in [image, mime_type]))
-            image_path = image_path is not None
-            if len([param is not None for param in (image_and_mime, image_path)]) != 1:
+            path_param = image_path is not None
+            if sum((1 for param in (image_and_mime, path_param) if param)) != 1:
                 raise ValueError(("Either 'image' and 'mime_type' or 'image_path' "
                                   "need to be specified"))
             self._image = image
@@ -761,12 +764,11 @@ class FileMessage(Message):
         if self._direction == self.Direction.outgoing:
             file_and_mime = all((param is not None for param
                                  in [file_content, mime_type]))
-            file_path = file_path is not None
-            if len([param is not None for param in (file_and_mime, file_path)]) != 1:
+            path_param = file_path is not None
+            if sum((1 for param in (file_and_mime, path_param) if param)) != 1:
                 raise ValueError(("Either 'file_content' and 'mime_type' or 'file_path' "
                                   "need to be specified"))
-            params = [p is not None for p in (thumbnail_content, thumbnail_path)]
-            if len(params) > 1:
+            if sum((1 for param in (thumbnail_content, thumbnail_path) if param)) > 1:
                 raise ValueError(("Either 'thumbnail_content' or 'thumbnail_path' may "
                                   "to be specified"))
             self._file_content = file_content

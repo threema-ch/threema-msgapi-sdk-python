@@ -4,7 +4,8 @@ functionality of the gateway service.
 """
 import asyncio
 
-from threema.gateway import Connection, GatewayError, Key
+from threema.gateway import Connection, GatewayError
+from threema.gateway.key import Key
 
 
 @asyncio.coroutine
