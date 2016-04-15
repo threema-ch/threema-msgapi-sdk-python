@@ -231,10 +231,19 @@ router.add_route('GET', '/blobs/{blob_id}', download_blob)
 
 
 class RawMessage(e2e.Message):
-    def __init__(self, nonce=None, message=None, **kwargs):
-        super().__init__(e2e.Message.Type.text_message, **kwargs)
+    def __init__(self, connection, nonce=None, message=None, **kwargs):
+        super().__init__(connection, e2e.Message.Type.text_message, **kwargs)
         self.nonce = nonce
         self.message = message
+
+    @asyncio.coroutine
+    def _pack(self, writer):
+        raise NotImplementedError
+
+    @classmethod
+    @asyncio.coroutine
+    def _unpack(cls, connection, parameters, key_pair, reader):
+        raise NotImplementedError
 
     @asyncio.coroutine
     def send(self):
@@ -534,7 +543,7 @@ class TestSendSimple:
         with pytest.raises(MessageServerError) as exc_info:
             yield from simple.TextMessage(
                 connection=invalid_connection,
-                id='ECHOECHO',
+                to_id='ECHOECHO',
                 text='Hello'
             ).send()
         assert exc_info.value.status == 401
@@ -544,7 +553,7 @@ class TestSendSimple:
         with pytest.raises(MessageServerError) as exc_info:
             yield from simple.TextMessage(
                 connection=nocredit_connection,
-                id='ECHOECHO',
+                to_id='ECHOECHO',
                 text='Hello'
             ).send()
         assert exc_info.value.status == 402
@@ -554,7 +563,7 @@ class TestSendSimple:
         with pytest.raises(MessageServerError) as exc_info:
             yield from simple.TextMessage(
                 connection=connection,
-                id='ECHOECHO',
+                to_id='ECHOECHO',
                 text='0' * 3501
             ).send()
         assert exc_info.value.status == 413
@@ -564,7 +573,7 @@ class TestSendSimple:
         with pytest.raises(MessageServerError) as exc_info:
             yield from simple.TextMessage(
                 connection=connection,
-                id='00000000',
+                to_id='00000000',
                 text='Hello'
             ).send()
         assert exc_info.value.status == 400
@@ -593,7 +602,7 @@ class TestSendSimple:
     def test_via_id(self, connection):
         id_ = yield from simple.TextMessage(
             connection=connection,
-            id='ECHOECHO',
+            to_id='ECHOECHO',
             text='0' * 3500
         ).send()
         assert id_ == '0' * 16
@@ -623,7 +632,7 @@ class TestSendE2E:
         with pytest.raises(MessageServerError) as exc_info:
             yield from e2e.TextMessage(
                 connection=invalid_connection,
-                id='ECHOECHO',
+                to_id='ECHOECHO',
                 key=_echoecho_encoded_key,
                 text='Hello'
             ).send()
@@ -634,7 +643,7 @@ class TestSendE2E:
         with pytest.raises(MessageServerError) as exc_info:
             yield from e2e.TextMessage(
                 connection=nocredit_connection,
-                id='ECHOECHO',
+                to_id='ECHOECHO',
                 key=_echoecho_encoded_key,
                 text='Hello'
             ).send()
@@ -645,7 +654,7 @@ class TestSendE2E:
         with pytest.raises(MessageServerError) as exc_info:
             yield from RawMessage(
                 connection=connection,
-                id='ECHOECHO',
+                to_id='ECHOECHO',
                 nonce=b'0' * 24,
                 message=b'1' * 4001
             ).send()
@@ -656,7 +665,7 @@ class TestSendE2E:
         with pytest.raises(MessageServerError) as exc_info:
             yield from e2e.TextMessage(
                 connection=connection,
-                id='00000000',
+                to_id='00000000',
                 key=_echoecho_encoded_key,
                 text='Hello'
             ).send()
@@ -666,7 +675,7 @@ class TestSendE2E:
     def test_raw(self, connection):
         id_ = yield from RawMessage(
             connection=connection,
-            id='ECHOECHO',
+            to_id='ECHOECHO',
             nonce=b'0' * 24,
             message=b'1' * 4000
         ).send()
@@ -676,7 +685,7 @@ class TestSendE2E:
     def test_via_id(self, connection):
         id_ = yield from e2e.TextMessage(
             connection=connection,
-            id='ECHOECHO',
+            to_id='ECHOECHO',
             text='Hello'
         ).send()
         assert id_ == '1' * 16
@@ -685,7 +694,7 @@ class TestSendE2E:
     def test_via_id_and_key(self, connection):
         id_ = yield from e2e.TextMessage(
             connection=connection,
-            id='ECHOECHO',
+            to_id='ECHOECHO',
             key=_echoecho_encoded_key,
             text='Hello'
         ).send()
@@ -697,7 +706,7 @@ class TestSendE2E:
         _latest_blob_ids = []
         id_ = yield from e2e.ImageMessage(
             connection=connection,
-            id='ECHOECHO',
+            to_id='ECHOECHO',
             key=_echoecho_encoded_key,
             image_path=_threema_jpg
         ).send()
@@ -711,7 +720,7 @@ class TestSendE2E:
         _latest_blob_ids = []
         id_ = yield from e2e.FileMessage(
             connection=connection,
-            id='ECHOECHO',
+            to_id='ECHOECHO',
             key=_echoecho_encoded_key,
             file_path=_threema_jpg
         ).send()
@@ -725,7 +734,7 @@ class TestSendE2E:
         _latest_blob_ids = []
         id_ = yield from e2e.FileMessage(
             connection=connection,
-            id='ECHOECHO',
+            to_id='ECHOECHO',
             key=_echoecho_encoded_key,
             file_path=_threema_jpg,
             thumbnail_path=_threema_jpg
