@@ -20,8 +20,6 @@ from .exception import *
 from .key import Key
 
 __all__ = (
-    'encrypt',
-    'decrypt',
     'Message',
     'DeliveryReceipt',
     'TextMessage',
@@ -30,6 +28,7 @@ __all__ = (
 )
 
 
+# TODO: Should not be public
 def encrypt(private, public, data, nonce=None):
     """
     Encrypt a message by using public-key encryption.
@@ -53,6 +52,7 @@ def encrypt(private, public, data, nonce=None):
     return pk_encrypt_raw(private, public, data + padding, nonce=nonce)
 
 
+# TODO: Should not be public
 def decrypt(private, public, nonce, data):
     """
     Decrypt a message by using public-key decryption.
@@ -63,8 +63,8 @@ def decrypt(private, public, nonce, data):
         - `nonce`: The nonce of the encrypted message.
         - `data`: Encrypted message (bytes).
 
-    Return an instance of either a :class:`DeliveryReceipt` or a
-    :class:`TextMessage`.
+    Return a tuple containing a :class:`Message.Type` and a raw payload
+    as :class:´bytes`.
     """
     # Decrypt payload
     payload = pk_decrypt_raw(private, public, nonce, data)
@@ -74,14 +74,11 @@ def decrypt(private, public, nonce, data):
     padding_length = int.from_bytes(payload[-1:], byteorder='little')
     payload = payload[1:-padding_length]
 
-    # Extract message or delivery receipt
-    type_ = Message.Type(type_)
-    if type_ == Message.Type.text_message:
-        return TextMessage(payload=payload)
-    elif type_ == Message.Type.delivery_receipt:
-        return DeliveryReceipt(payload=payload)
+    # Return type and payload
+    return Message.Type(type_), payload
 
 
+# TODO: Should not be public
 def pk_encrypt_raw(private, public, data, nonce=None):
     """
     Encrypt data by using public-key encryption.
@@ -100,6 +97,7 @@ def pk_encrypt_raw(private, public, data, nonce=None):
     return box.encrypt(data, nonce=nonce, pack_nonce=False)
 
 
+# TODO: Should not be public
 def pk_decrypt_raw(private, public, nonce, data):
     """
     Decrypt data by using public-key decryption.
@@ -117,6 +115,7 @@ def pk_decrypt_raw(private, public, nonce, data):
     return box.decrypt(data, nonce=nonce)
 
 
+# TODO: Should not be public
 def sk_encrypt_raw(key, data, nonce=None):
     """
     Encrypt data by using secret-key encryption.
@@ -139,6 +138,7 @@ def sk_encrypt_raw(key, data, nonce=None):
     return data[:nonce_length], data[nonce_length:]
 
 
+# TODO: Should not be public
 def sk_decrypt_raw(key, nonce, data):
     """
     Decrypt data by using secret-key decryption.
@@ -155,16 +155,18 @@ def sk_decrypt_raw(key, nonce, data):
     return box.decrypt(data, nonce=nonce)
 
 
+# TODO: Update docstring (arguments)
 class Message(metaclass=abc.ABCMeta):
     """
     A message class all end-to-end mode messages are derived from.
 
     Attributes:
-        - `type_`: The message type.
         - `connection`: An instance of a connection.
-        - `id`: Threema ID of the recipient.
-        - `key`: The public key of the recipient. Will be fetched from
-           the server if not supplied.
+        - `type_`: The message type.
+        - `id_`: Threema ID of the sender (incoming) or recipient
+          (outgoing).
+        - `key`: The public key of the sender/recipient. Will be
+          fetched from the server if not supplied.
         - `key_file`: A file where the private key is stored in. Can
           be used instead of passing the key directly.
     """
@@ -183,28 +185,130 @@ class Message(metaclass=abc.ABCMeta):
         file_message = b'\x17'
         delivery_receipt = b'\x80'
 
-    # noinspection PyShadowingBuiltins
-    def __init__(self, type_, connection=None, id=None, key=None, key_file=None):
+    @enum.unique
+    class Direction(enum.Enum):
+        """
+        Incoming or outgoing message.
+        """
+        outgoing = 1
+        incoming = 2
+
+    @classmethod
+    def message_class(cls, type_):
+        """
+        Return the corresponding :class:`Message` class for a
+        :class:`Message.Type`.
+
+        Arguments:
+            - `type_`: A :class:`Message.Type`.
+
+        Raises :exc:`KeyError` if no matching message class could be
+        found.
+        """
+        if getattr(cls, '_message_classes', default=None) is None:
+            cls._message_classes = {
+                cls.Type.text_message: TextMessage,
+                cls.Type.image_message: ImageMessage,
+                cls.Type.file_message: FileMessage,
+                cls.Type.delivery_receipt: DeliveryReceipt,
+            }
+        return cls._message_classes[type_]
+
+    @classmethod
+    @asyncio.coroutine
+    @abc.abstractmethod
+    def unpack(cls, connection, parameters, data):
+        """
+        Return a :class:`Message` instance from a received message.
+
+        The argument `parameters` contains the following items:
+            - `from_id`: Sender's identity.
+            - `message_id`: Message ID assigned by the sender as bytes.
+            - `date`: A :class:´datetime.datetime` instance.
+
+        Arguments:
+            - `connection`: A :class:`Connection` instance.
+            - `parameters`: A :class:`dict` containing parameters
+              (see above).
+            - `data`: A :class:`bytes`-like instance containing the
+              encrypted message.
+
+        Raises:
+            - :exc:`MessageError` in case the message is invalid.
+        """
+        raise NotImplementedError
+
+    def __init__(
+            self, connection, type_,
+            key=None, key_file=None,
+            to_id=None, from_data=None
+    ):
+        # Get direction
+        if from_data is not None:
+            direction = self.Direction.incoming
+        else:
+            direction = self.Direction.outgoing
+
+        # Check required parameters
+        if direction == self.Direction.outgoing:
+            if to_id is None:
+                message = "Parameter 'to_id' is required for outgoing messages."
+                raise ValueError(message)
+            from_id = connection.id
+        elif direction == self.Direction.incoming:
+            keys = ('from_id', 'message_id', 'date')
+            if any((key not in from_data for key in keys)):
+                message = 'Parameters {} are required for incoming messages.'
+                raise ValueError(message.format(keys))
+            from_id = from_data['from_id']
+            to_id = connection.id
+        else:
+            raise ValueError('Invalid direction value')
+
+        # Required for both directions
+        self._connection = connection
+        self._direction = direction
+        self._type = type_
         self._key = None
         self._key_file = None
-        self.connection = connection
-        self.type = type_
-        self.id = id
         self.key = key
         self.key_file = key_file
+
+        # Values depending on direction
+        self.to_id = to_id  # Always set
+        self.from_id = from_id  # Always set
+        self.message_id = from_data.get('message_id')  # None if outgoing
+        self.date = from_data.get('date')  # None if outgoing
+
+    @property
+    def _id(self):
+        """
+        Return the id the recipient (outgoing messages) or the
+        sender (incoming messages).
+        """
+        if self._direction == self.Direction.outgoing:
+            return self.to_id
+        else:
+            return self.from_id
+
+    @property
+    def type(self):
+        """Return the :class:`Message.Type`."""
+        return self._type
 
     @property
     @asyncio.coroutine
     def key(self):
         """
-        Get the public key of the recipient. Will be request from the
-        server if necessary. Note that the getter is a coroutine!
+        Get the public key of the recipient (outgoing messages) or the
+        sender (incoming messages). Will be request from the server
+        if necessary. Note that the getter is a coroutine!
 
-        Set the public key of the recipient. The key will be decoded
-        if required.
+        Set the public key of the recipient or sender. The key will be
+        decoded if required.
         """
         if self._key is None:
-            self._key = yield from self.connection.get_public_key(self.id)
+            self._key = yield from self._connection.get_public_key(self._id)
         return self._key
 
     @key.setter
@@ -229,11 +333,32 @@ class Message(metaclass=abc.ABCMeta):
                 self.key = file.readline().strip()
         self._key_file = key_file
 
+    @asyncio.coroutine
     @abc.abstractmethod
     def send(self):
         """
         Send a message.
         """
+        raise NotImplementedError
+
+    @asyncio.coroutine
+    def _check_capabilities(self, required_capabilities):
+        """
+        Test for capabilities of a recipient.
+
+        Arguments:
+            - `required_capabilities`: A set of capabilities that are
+              required.
+
+        Raise :class:`MissingCapabilityError` in case that one or more
+        capabilities are missing.
+        """
+        # Check capabilities of a recipient
+        capabilities_coroutine = self._connection.get_reception_capabilities(self._id)
+        recipient_capabilities = yield from capabilities_coroutine
+        if not required_capabilities <= recipient_capabilities:
+            missing_capabilities = required_capabilities - recipient_capabilities
+            raise MissingCapabilityError(missing_capabilities)
 
     @asyncio.coroutine
     def _encrypt(self, message, private=None, public=None):
@@ -250,7 +375,7 @@ class Message(metaclass=abc.ABCMeta):
         """
         # Keys specified?
         if private is None and public is None:
-            private = self.connection.key
+            private = self._connection.key
             public = yield from self.key
 
         # Encrypt
@@ -271,7 +396,7 @@ class Message(metaclass=abc.ABCMeta):
         """
         # Keys specified?
         if private is None and public is None:
-            private = self.connection.key
+            private = self._connection.key
             public = yield from self.key
 
         # Decrypt
@@ -292,7 +417,7 @@ class Message(metaclass=abc.ABCMeta):
         """
         # Keys specified?
         if private is None and public is None:
-            private = self.connection.key
+            private = self._connection.key
             public = yield from self.key
 
         # Encrypt
@@ -313,32 +438,14 @@ class Message(metaclass=abc.ABCMeta):
         """
         # Keys specified?
         if private is None and public is None:
-            private = self.connection.key
+            private = self._connection.key
             public = yield from self.key
 
         # Decrypt
         return pk_decrypt_raw(private, public, nonce, data)
 
-    @asyncio.coroutine
-    def _check_capabilities(self, required_capabilities):
-        """
-        Test for capabilities of a recipient.
 
-        Arguments:
-            - `required_capabilities`: A set of capabilities that are
-              required.
-
-        Raise :class:`MissingCapabilityError` in case that one or more
-        capabilities are missing.
-        """
-        # Check capabilities of a recipient
-        capabilities_coroutine = self.connection.get_reception_capabilities(self.id)
-        recipient_capabilities = yield from capabilities_coroutine
-        if not required_capabilities <= recipient_capabilities:
-            missing_capabilities = required_capabilities - recipient_capabilities
-            raise MissingCapabilityError(missing_capabilities)
-
-
+# TODO: Update docstring (arguments)
 class DeliveryReceipt(Message):
     """
     A delivery receipt that can be sent or received in end-to-end
@@ -359,19 +466,36 @@ class DeliveryReceipt(Message):
         read = b'\x02'
         user_ack = b'\x03'
 
-    def __init__(self, payload):
-        super().__init__(Message.Type.delivery_receipt)
-
+    @classmethod
+    @asyncio.coroutine
+    def unpack(cls, connection, parameters, data):
         # Check length
-        if len(payload) < 9 or (len(payload) - 1) % 8 != 0:
-            raise MessageError('Invalid delivery receipt length')
+        if len(data) < 9 or (len(data) - 1) % 8 != 0:
+            raise MessageError('Invalid length')
 
         # Unpack payload
-        type_, *self.ids = struct.unpack('1s' + '8s' * int(len(payload) / 8), payload)
-        self.receipt_type = self.ReceiptType(type_)
+        formatter = '<1s' + '8s' * int(len(data) / 8)
+        try:
+            receipt_type, *message_ids = struct.unpack(formatter, data)
+        except struct.error as exc:
+            message = 'Could not unpack receipt type and message ids'
+            raise MessageError(message) from exc
+        receipt_type = cls.ReceiptType(receipt_type)
+
+        # Return instance
+        return cls(connection, from_data=dict(parameters, **{
+            'receipt_type': receipt_type,
+            'message_ids': message_ids,
+        }))
+
+    def __init__(self, connection, from_data=None, **kwargs):
+        super().__init__(connection, Message.Type.delivery_receipt,
+                         from_data=from_data, **kwargs)
+        self.receipt_type = from_data.get('receipt_type')
+        self.message_ids = from_data.get('message_ids')
 
     def __str__(self):
-        ids = (binascii.hexlify(id_).decode('utf-8') for id_ in self.ids)
+        ids = (binascii.hexlify(id_).decode('ascii') for id_ in self.message_ids)
         return 'Delivery receipt({}): {}'.format(self.receipt_type.name, ', '.join(ids))
 
     def send(self):
@@ -382,6 +506,7 @@ class DeliveryReceipt(Message):
             'Creating and sending delivery receipts is currently not supported')
 
 
+# TODO: Update docstring (arguments)
 class TextMessage(Message):
     """
     A text message.
@@ -399,19 +524,30 @@ class TextMessage(Message):
         - `payload`: The remaining byte sequence of a decrypted
           message.
     """
-    def __init__(self, text=None, payload=None, **kwargs):
-        super().__init__(Message.Type.text_message, **kwargs)
 
-        # Validate arguments
-        mode = [argument for argument in (text, payload) if argument is not None]
-        if len(mode) != 1:
-            raise MessageError("Either 'text' or 'payload' need to be specified.")
+    @classmethod
+    @asyncio.coroutine
+    def unpack(cls, connection, parameters, data):
+        # Unpack text
+        try:
+            text = data.decode('utf-8')
+        except UnicodeError as exc:
+            raise MessageError('Could not decode text') from exc
 
-        # Unpack payload or store text
-        if payload is not None:
-            self.text = payload.decode('utf-8')
-        else:
+        # Return instance
+        return cls(connection, from_data=dict(parameters, **{
+            'text': text,
+        }))
+
+    def __init__(self, connection, text=None, from_data=None, **kwargs):
+        super().__init__(connection, Message.Type.text_message,
+                         from_data=from_data, **kwargs)
+        if self._direction.outgoing:
+            if self.text is None:
+                raise ValueError("Parameter 'text' required")
             self.text = text
+        else:
+            self.text = from_data.get('text')
 
     def __str__(self):
         return self.text
@@ -447,13 +583,14 @@ class TextMessage(Message):
         nonce, message = yield from self.encrypt()
 
         # Send message
-        return (yield from self.connection.send_e2e(**{
-            'to': self.id,
-            'nonce': binascii.hexlify(nonce).decode(),
-            'box': binascii.hexlify(message).decode()
+        return (yield from self._connection.send_e2e(**{
+            'to': self._id,
+            'nonce': binascii.hexlify(nonce).decode('ascii'),
+            'box': binascii.hexlify(message).decode('ascii')
         }))
 
 
+# TODO: Update docstring (arguments)
 class ImageMessage(Message):
     """
     An image message.
@@ -525,7 +662,7 @@ class ImageMessage(Message):
 
         # Encrypt and upload image
         image_nonce, image_data = yield from self._pk_encrypt_raw(self.image)
-        blob_id = binascii.unhexlify((yield from self.connection.upload(image_data)))
+        blob_id = binascii.unhexlify((yield from self._connection.upload(image_data)))
 
         # Pack payload
         data = struct.pack(
@@ -537,13 +674,14 @@ class ImageMessage(Message):
         nonce, message = yield from self._encrypt(data)
 
         # Send message
-        return (yield from self.connection.send_e2e(**{
-            'to': self.id,
-            'nonce': binascii.hexlify(nonce).decode(),
-            'box': binascii.hexlify(message).decode()
+        return (yield from self._connection.send_e2e(**{
+            'to': self._id,
+            'nonce': binascii.hexlify(nonce).decode('ascii'),
+            'box': binascii.hexlify(message).decode('ascii')
         }))
 
 
+# TODO: Update docstring (arguments)
 class FileMessage(Message):
     """
     A file message including a thumbnail.
@@ -620,12 +758,12 @@ class FileMessage(Message):
 
         # Encrypt and upload file
         _, file_data = sk_encrypt_raw(key, self.file_content, nonce=self.nonce['file'])
-        file_id = yield from self.connection.upload(file_data)
+        file_id = yield from self._connection.upload(file_data)
 
         # Build JSON
         content = {
             'b': file_id,
-            'k': hex_key.decode('utf-8'),
+            'k': hex_key.decode('ascii'),
             'm': self.mime_type,
             'n': os.path.basename(self.file_path),
             's': len(self.file_content),
@@ -645,7 +783,7 @@ class FileMessage(Message):
             # Encrypt and upload thumbnail
             _, thumbnail_data = sk_encrypt_raw(key, self.thumbnail_content,
                                                nonce=self.nonce['thumbnail'])
-            thumbnail_id = yield from self.connection.upload(thumbnail_data)
+            thumbnail_id = yield from self._connection.upload(thumbnail_data)
 
             # Update JSON
             content['t'] = thumbnail_id
@@ -658,8 +796,8 @@ class FileMessage(Message):
         nonce, message = yield from self._encrypt(data)
 
         # Send message
-        return (yield from self.connection.send_e2e(**{
-            'to': self.id,
-            'nonce': binascii.hexlify(nonce).decode(),
-            'box': binascii.hexlify(message).decode()
+        return (yield from self._connection.send_e2e(**{
+            'to': self._id,
+            'nonce': binascii.hexlify(nonce).decode('ascii'),
+            'box': binascii.hexlify(message).decode('ascii')
         }))
