@@ -245,7 +245,7 @@ class RawMessage(e2e.Message):
         """
         # Send message
         return (yield from self._connection.send_e2e(**{
-            'to': self._id,
+            'to': self.to_id,
             'nonce': binascii.hexlify(self.nonce).decode(),
             'box': binascii.hexlify(self.message).decode()
         }))

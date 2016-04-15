@@ -280,23 +280,23 @@ class Connection:
         Arguments:
             - `data`: Binary data.
 
-        Return the ID of the blob.
+        Return the hex-encoded ID of the blob.
         """
         return (yield from self._upload(self.urls['upload_blob'], data))
 
     @asyncio.coroutine
-    def download(self, id):
+    def download(self, blob_id):
         """
         Download a blob.
 
         Arguments:
-            - `id`: The blob ID.
+            - `id`: The hex-encoded blob ID.
 
-        Return a :class:`aiohttp.ClientResponse` instance.
+        Return a :class:`asyncio.StreamReader` instance.
         """
-        response = yield from self._get(self.urls['download_blob'].format(id))
+        response = yield from self._get(self.urls['download_blob'].format(blob_id))
         if response.status == 200:
-            return response
+            return response.content
         else:
             yield from raise_server_error(response, BlobServerError)
 

@@ -11,6 +11,7 @@ __all__ = (
     'ReceptionCapabilitiesError',
     'ReceptionCapabilitiesServerError',
     'CreditsServerError',
+    'DirectionError',
     'MessageError',
     'UnsupportedMimeTypeError',
     'MissingCapabilityError',
@@ -127,10 +128,16 @@ class CreditsServerError(GatewayServerError):
     }
 
 
+class DirectionError(GatewayError):
+    """
+    Indicates that a message can not be processed for the specified
+    direction because required parameters are missing.
+    """
+
+
 class MessageError(GatewayError):
     """
-    Indicates that a message is invalid. The server has not been
-    contacted, yet.
+    Indicates that a message is invalid.
     """
 
 
