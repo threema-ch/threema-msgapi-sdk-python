@@ -91,3 +91,4 @@ def main():
     except Exception as exc:
         click.echo('An error occurred:', err=True)
         click.echo(exc, err=True)
+        raise
