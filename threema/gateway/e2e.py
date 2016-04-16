@@ -9,11 +9,18 @@ import struct
 import mimetypes
 import json
 import asyncio
+import ssl
+import hmac
+import hashlib
+import datetime
 
 import libnacl
 import libnacl.public
 import libnacl.secret
 import libnacl.encode
+
+from aiohttp import web
+from aiohttp.web_urldispatcher import UrlDispatcher
 
 from . import ReceptionCapability, util
 from .exception import *
@@ -21,6 +28,7 @@ from .key import Key
 
 __all__ = (
     'BLOB_ID_LENGTH',
+    'AbstractCallback',
     'Message',
     'DeliveryReceipt',
     'TextMessage',
@@ -108,6 +116,146 @@ def _sk_decrypt(key, nonce, data):
     # Decrypt payload
     box = libnacl.secret.SecretBox(key=key)
     return box.decrypt(data, nonce=nonce)
+
+
+# TODO: Add logging
+# TODO: Add docstrings
+class AbstractCallback(metaclass=abc.ABCMeta):
+    """
+    Raises :exc:`TypeError` in case no valid certificate has been
+    provided.
+    """
+    def __init__(self, connection, certfile=None, keyfile=None, loop=None):
+        self.connection = connection
+        self.loop = asyncio.get_event_loop() if loop is None else loop
+
+        # Create SSL context
+        self.ssl_context = self.create_ssl_context(certfile, keyfile)
+
+        # Create router
+        self.router = self.create_router()
+
+        # Create application
+        self.application = self.create_application(self.router, loop)
+        self.handler = self.create_handler()
+
+    @asyncio.coroutine
+    def create_server(self, host=None, port=443, **kwargs):
+        # noinspection PyArgumentList
+        server = yield from self.loop.create_server(
+            self.handler, host=host, port=port, ssl=self.ssl_context, **kwargs)
+        return server
+
+    # noinspection PyMethodMayBeStatic
+    def create_ssl_context(self, certfile, keyfile):
+        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_context.load_cert_chain(certfile=certfile, keyfile=keyfile)
+        return ssl_context
+
+    def create_router(self):
+        router = UrlDispatcher()
+        router.add_route('POST', '/gateway_callback', self._handle_and_catch_error)
+        return router
+
+    # noinspection PyMethodMayBeStatic
+    def create_application(self, router, loop):
+        return web.Application(router=router, loop=loop)
+
+    def create_handler(self):
+        return self.application.make_handler()
+
+    @asyncio.coroutine
+    def _handle_and_catch_error(self, request):
+        try:
+            return (yield from self.handle_callback(request))
+        except CallbackError as exc:
+            # TODO: Log
+            # Note: For security reasons, we do not send the reason
+            return web.Response(status=exc.status)
+        except Exception as exc:
+            # TODO: Log
+            raise
+
+    # TODO: Raises?
+    @asyncio.coroutine
+    def handle_callback(self, request):
+        response = yield from request.post()
+
+        # Unpack fields
+        try:
+            from_id = response['from']
+            to_id = response['to']
+            message_id = response['messageId']
+            date = response['date']
+            nonce = response['nonce']
+            data = response['box']
+            mac = response['mac']
+        except KeyError as exc:
+            raise CallbackError(400, 'Could not unpack required fields') from exc
+
+        # Validate MAC and ID
+        self.validate_mac(mac, response)
+        self.validate_id(to_id)
+
+        # Validate from id length
+        if len(from_id) != 8:
+            raise CallbackError(400, "Invalid 'from' value")
+
+        # Convert date and message id
+        try:
+            message_id = binascii.unhexlify(message_id)
+        except binascii.Error as exc:
+            raise CallbackError(400, 'Invalid message ID') from exc
+        try:
+            date = datetime.datetime.fromtimestamp(float(date))
+        except (ValueError, TypeError) as exc:
+            raise CallbackError(400, 'Invalid date') from exc
+
+        # Convert nonce and data
+        try:
+            nonce = binascii.unhexlify(nonce)
+            data = binascii.unhexlify(data)
+        except binascii.Error as exc:
+            raise CallbackError(400, 'Invalid nonce or data') from exc
+
+        # Unpack message
+        try:
+            message = yield from Message.receive(self.connection, {
+                'from_id': from_id,
+                'message_id': message_id,
+                'date': date,
+            }, nonce, data)
+        except MessageError as exc:
+            raise CallbackError(400, str(exc)) from exc
+
+        # Pass message to handler
+        yield from self.receive_message(message)
+
+        # Respond with 'OK'
+        return web.Response(status=200)
+
+    def validate_mac(self, expected_mac, response):
+        message = ''.join((
+            response['from'],
+            response['to'],
+            response['messageId'],
+            response['date'],
+            response['nonce'],
+            response['box'],
+        ))
+        hmac_ = hmac.new(self.connection.secret, msg=message, digestmod=hashlib.sha256)
+        actual_mac = hmac_.hexdigest()
+        if not hmac.compare_digest(expected_mac, actual_mac):
+            raise CallbackError(400, 'MACs do not match')
+
+    def validate_id(self, to_id):
+        if to_id != self.connection.id:
+            raise CallbackError(400, 'IDs do not match')
+
+    @asyncio.coroutine
+    @abc.abstractmethod
+    def receive_message(self, message):
+        raise NotImplementedError
 
 
 # TODO: Update docstring (arguments)
@@ -312,10 +460,10 @@ class Message(metaclass=abc.ABCMeta):
             - `connection`: A :class:`Connection` instance.
             - `parameters`: A :class:`dict` containing parameters
               (see above).
-            - `data`: A :class:`bytes`-like instance containing the
-              encrypted message.
             - `nonce`: A :class:`bytes`-like instance containing the
               messages' nonce.
+            - `data`: A :class:`bytes`-like instance containing the
+              encrypted message.
 
         Raises:
             - :exc:`MessageError` in case the message is invalid.
