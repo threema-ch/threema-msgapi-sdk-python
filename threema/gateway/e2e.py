@@ -160,7 +160,7 @@ class Message(metaclass=abc.ABCMeta):
         Raises :exc:`KeyError` if no matching message class could be
         found.
         """
-        if getattr(cls, '_message_classes', default=None) is None:
+        if getattr(cls, '_message_classes', None) is None:
             cls._message_classes = {
                 cls.Type.text_message: TextMessage,
                 cls.Type.image_message: ImageMessage,
@@ -203,10 +203,10 @@ class Message(metaclass=abc.ABCMeta):
         self._connection = connection
         self._direction = direction
         self._type = type_
-        self._public_key = None
-        self._public_key_file = None
-        self.public_key = key
-        self.public_key_file = key_file
+        self._key = None
+        self._key_file = None
+        self.key = key
+        self.key_file = key_file
 
         # Values depending on direction
         self.to_id = to_id  # Always set
@@ -222,7 +222,7 @@ class Message(metaclass=abc.ABCMeta):
     # TODO: Raises?
     @property
     @asyncio.coroutine
-    def public_key(self):
+    def key(self):
         """
         Get the public key of the recipient (outgoing messages) or the
         sender (incoming messages). Will be request from the server
@@ -231,35 +231,35 @@ class Message(metaclass=abc.ABCMeta):
         Set the public key of the recipient or sender. The key will be
         decoded if required.
         """
-        if self._public_key is None:
-            self._public_key = yield from self._connection.get_public_key(self.to_id)
-        return self._public_key
+        if self._key is None:
+            self._key = yield from self._connection.get_public_key(self.to_id)
+        return self._key
 
-    @public_key.setter
-    def public_key(self, key):
+    @key.setter
+    def key(self, key):
         if isinstance(key, str):
             key = Key.decode(key, Key.Type.public)
-        self._public_key = key
+        self._key = key
 
     @property
-    def public_key_file(self):
+    def key_file(self):
         """
         Get the path of the recipients public key file.
 
         Set the public key of the recipient by reading it from a file.
         """
-        return self._public_key_file
+        return self._key_file
 
-    @public_key_file.setter
-    def public_key_file(self, key_file):
+    @key_file.setter
+    def key_file(self, key_file):
         if key_file is not None:
             with open(key_file) as file:
-                self.public_key = file.readline().strip()
-        self._public_key_file = key_file
+                self.key = file.readline().strip()
+        self._key_file = key_file
 
     # TODO: Raises?
     @asyncio.coroutine
-    def send(self):
+    def send(self, get_data_only=False):
         """
         Send a message.
 
@@ -277,7 +277,7 @@ class Message(metaclass=abc.ABCMeta):
             raise MessageError('Could not pack type') from exc
 
         # Get content data
-        yield from self._pack(writer)
+        yield from self.pack(writer)
 
         # Generate 0 < padding < 256
         padding_length = util.randint(1, 255)
@@ -285,7 +285,9 @@ class Message(metaclass=abc.ABCMeta):
         writer.writeexactly(bytes([padding_length] * padding_length))
 
         # Encrypt message
-        nonce, data = yield from self._encrypt(writer.getvalue())
+        nonce, data = yield from self.encrypt(writer.getvalue())
+        if get_data_only:
+            return nonce, data
 
         # Send message
         return (yield from self._connection.send_e2e(**{
@@ -319,8 +321,8 @@ class Message(metaclass=abc.ABCMeta):
             - :exc:`MessageError` in case the message is invalid.
         """
         # Decrypt message
-        key_pair = yield from cls._get_decrypt_key_pair(connection, parameters)
-        data = cls._decrypt(nonce, data, key_pair)
+        key_pair = yield from cls.get_decrypt_key_pair(connection, parameters)
+        data = cls.decrypt(nonce, data, key_pair)
 
         # Unpack type and padding length
         try:
@@ -340,12 +342,11 @@ class Message(metaclass=abc.ABCMeta):
         reader = util.ViewIOReader(data[1:-padding_length])
 
         # Unpack message
-        # noinspection PyProtectedMember
-        return (yield from class_._unpack(connection, parameters, key_pair, reader))
+        return (yield from class_.unpack(connection, parameters, key_pair, reader))
 
     @asyncio.coroutine
     @abc.abstractmethod
-    def _pack(self, writer):
+    def pack(self, writer):
         """
         Pack payload data.
 
@@ -361,7 +362,7 @@ class Message(metaclass=abc.ABCMeta):
     @classmethod
     @asyncio.coroutine
     @abc.abstractmethod
-    def _unpack(cls, connection, parameters, key_pair, reader):
+    def unpack(cls, connection, parameters, key_pair, reader):
         """
         Return a :class:`Message` instance from raw payload data.
 
@@ -385,7 +386,7 @@ class Message(metaclass=abc.ABCMeta):
 
     # TODO: Raises?
     @asyncio.coroutine
-    def _check_capabilities(self, required_capabilities):
+    def check_capabilities(self, required_capabilities):
         """
         Test for capabilities of a recipient.
 
@@ -406,19 +407,19 @@ class Message(metaclass=abc.ABCMeta):
     # TODO: Raises?
     @property
     @asyncio.coroutine
-    def _get_encrypt_key_pair(self):
+    def get_encrypt_key_pair(self):
         """
         Return a tuple containing our private key and the public key of
         the recipient.
         """
         private = self._connection.key
-        public = yield from self.public_key
+        public = yield from self.key
         return private, public
 
     # TODO: Raises?
     @classmethod
     @asyncio.coroutine
-    def _get_decrypt_key_pair(cls, connection, parameters):
+    def get_decrypt_key_pair(cls, connection, parameters):
         """
         Return a tuple containing our private key and the public key of
         the sender.
@@ -434,7 +435,7 @@ class Message(metaclass=abc.ABCMeta):
 
     # TODO: Raises?
     @asyncio.coroutine
-    def _encrypt(self, data, key_pair=None, nonce=None):
+    def encrypt(self, data, key_pair=None, nonce=None):
         """
         Encrypt data.
 
@@ -449,14 +450,14 @@ class Message(metaclass=abc.ABCMeta):
         """
         # Key pair specified?
         if key_pair is None:
-            key_pair = yield from self._get_encrypt_key_pair
+            key_pair = yield from self.get_encrypt_key_pair
 
         # Encrypt
         return _pk_encrypt(key_pair, data, nonce=nonce)
 
     # TODO: Raises?
     @classmethod
-    def _decrypt(cls, nonce, data, key_pair):
+    def decrypt(cls, nonce, data, key_pair):
         """
         Decrypt data.
 
@@ -503,12 +504,12 @@ class DeliveryReceipt(Message):
         return 'Delivery receipt({}): {}'.format(self.receipt_type.name, ', '.join(ids))
 
     @asyncio.coroutine
-    def _pack(self, writer):
+    def pack(self, writer):
         raise NotImplementedError('Sending delivery-receipts is not supported')
 
     @classmethod
     @asyncio.coroutine
-    def _unpack(cls, connection, parameters, key_pair, reader):
+    def unpack(cls, connection, parameters, key_pair, reader):
         # Check length
         length = len(reader)
         if length < 9 or (length - 1) % 8 != 0:
@@ -568,7 +569,7 @@ class TextMessage(Message):
         return self.text
 
     @asyncio.coroutine
-    def _pack(self, writer):
+    def pack(self, writer):
         # Encode text
         try:
             text = self.text.encode('utf-8')
@@ -580,9 +581,9 @@ class TextMessage(Message):
 
     @classmethod
     @asyncio.coroutine
-    def _unpack(cls, connection, parameters, key_pair, reader):
+    def unpack(cls, connection, parameters, key_pair, reader):
         # Get text
-        text = reader.readexactly(len(reader))
+        text = bytes(reader.readexactly(len(reader)))
 
         # Decode text
         try:
@@ -685,12 +686,12 @@ class ImageMessage(Message):
             self._mime_type = mime_type
 
     @asyncio.coroutine
-    def _pack(self, writer):
+    def pack(self, writer):
         # Check capabilities of recipient
-        yield from self._check_capabilities(self.required_capabilities)
+        yield from self.check_capabilities(self.required_capabilities)
 
         # Encrypt and upload image
-        image_nonce, image_data = yield from self._encrypt(self.image)
+        image_nonce, image_data = yield from self.encrypt(self.image)
         blob_id = yield from self._connection.upload(image_data)
         try:
             blob_id = binascii.unhexlify(blob_id)
@@ -708,7 +709,7 @@ class ImageMessage(Message):
 
     @classmethod
     @asyncio.coroutine
-    def _unpack(cls, connection, parameters, key_pair, reader):
+    def unpack(cls, connection, parameters, key_pair, reader):
         # Unpack blob id, image length and image nonce
         length = struct.calcsize(cls._formatter)
         try:
@@ -721,7 +722,7 @@ class ImageMessage(Message):
         blob_id = binascii.hexlify(blob_id)
         response = yield from connection.download(blob_id)
         image_data = yield from response.read()
-        image = cls._decrypt(image_nonce, image_data, key_pair)
+        image = cls.decrypt(image_nonce, image_data, key_pair)
 
         # Return instance
         return cls(connection, from_data=dict(parameters, **{
@@ -847,9 +848,9 @@ class FileMessage(Message):
                 self._thumbnail_content = file.read()
 
     @asyncio.coroutine
-    def _pack(self, writer):
+    def pack(self, writer):
         # Check capabilities of recipient
-        yield from self._check_capabilities(self.required_capabilities)
+        yield from self.check_capabilities(self.required_capabilities)
 
         # Encrypt and upload file by a newly generated symmetric key
         key, hex_key = Key.generate_secret_key()
@@ -890,7 +891,7 @@ class FileMessage(Message):
 
     @classmethod
     @asyncio.coroutine
-    def _unpack(cls, connection, parameters, key_pair, reader):
+    def unpack(cls, connection, parameters, key_pair, reader):
         # Get payload
         content = reader.readexactly(len(reader))
 

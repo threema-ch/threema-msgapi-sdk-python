@@ -4,230 +4,14 @@ the Threema Gateway server. Obviously, the simulated server does not
 completely mimic the behaviour of the Gateway server.
 """
 import binascii
-import hashlib
-import os
 import asyncio
 
 import pytest
 
-from aiohttp import web
-from aiohttp.web_urldispatcher import UrlDispatcher
-
 from threema.gateway.exception import *
 from threema.gateway import simple, e2e, ReceptionCapability
 
-
-_res_path = os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir, 'res'))
-_threema_jpg = os.path.join(_res_path, 'threema.jpg')
-_echoecho_key = b'4a6a1b34dcef15d43cb74de2fd36091be99fbbaf126d099d47d83d919712c72b'
-_echoecho_encoded_key = 'public:' + _echoecho_key.decode()
-_blobs = {}
-_latest_blob_ids = []
-
-
-@asyncio.coroutine
-def pubkeys(request):
-    key = request.match_info['key']
-    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
-        return web.Response(status=401)
-    elif len(key) != 8:
-        return web.Response(status=404)
-    elif key == 'ECHOECHO':
-        return web.Response(body=_echoecho_key)
-    return web.Response(status=404)
-
-
-@asyncio.coroutine
-def lookup_phone(request):
-    phone = request.match_info['phone']
-    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
-        return web.Response(status=401)
-    elif not phone.isdigit():
-        return web.Response(status=404)
-    elif phone == '44123456789':
-        return web.Response(body=b'ECHOECHO')
-    return web.Response(status=404)
-
-
-@asyncio.coroutine
-def lookup_phone_hash(request):
-    phone_hash = request.match_info['phone_hash']
-    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
-        return web.Response(status=401)
-    elif len(phone_hash) % 2 != 0:
-        # Note: This status code might not be intended and may change in the future
-        return web.Response(status=500)
-    elif len(phone_hash) != 64:
-        return web.Response(status=400)
-    elif phone_hash == '98b05f6eda7a878f6f016bdcdc9db6eb61a6b190e814ff787142115af144214c':
-        return web.Response(body=b'ECHOECHO')
-    return web.Response(status=404)
-
-
-@asyncio.coroutine
-def lookup_email(request):
-    email = request.match_info['email']
-    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
-        return web.Response(status=401)
-    elif email == 'echoecho@example.com':
-        return web.Response(body=b'ECHOECHO')
-    return web.Response(status=404)
-
-
-@asyncio.coroutine
-def lookup_email_hash(request):
-    email_hash = request.match_info['email_hash']
-    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
-        return web.Response(status=401)
-    elif len(email_hash) % 2 != 0:
-        # Note: This status code might not be intended and may change in the future
-        return web.Response(status=500)
-    elif len(email_hash) != 64:
-        return web.Response(status=400)
-    elif email_hash == '45a13d422b40f81936a9987245d3f6d9064c90607273af4f578246b4484669e2':
-        return web.Response(body=b'ECHOECHO')
-    return web.Response(status=404)
-
-
-@asyncio.coroutine
-def capabilities(request):
-    id_ = request.match_info['id']
-    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
-        return web.Response(status=401)
-    elif id_ == 'ECHOECHO':
-        return web.Response(body=b'text,image,video,file')
-    return web.Response(status=404)
-
-
-@asyncio.coroutine
-def credits(request):
-    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
-        return web.Response(status=401)
-    return web.Response(body=b'100')
-
-
-@asyncio.coroutine
-def send_simple(request):
-    post = (yield from request.post())
-
-    # Check API identity
-    if (post['from'], post['secret']) not in pytest.msgapi.api_identities:
-        return web.Response(status=401)
-
-    # Get ID from to, email or phone
-    if 'to' in post:
-        id_ = post['to']
-    elif post.get('email', None) == 'echoecho@example.com':
-        id_ = 'ECHOECHO'
-    elif post.get('phone', None) == '44123456789':
-        id_ = 'ECHOECHO'
-    else:
-        return web.Response(status=404)
-
-    # Process
-    text = post['text']
-    if post['from'] == pytest.msgapi.nocredit_id:
-        return web.Response(status=402)
-    elif id_ != 'ECHOECHO':
-        return web.Response(status=400)
-    elif len(text) > 3500:
-        return web.Response(status=413)
-    return web.Response(body=b'0' * 16)
-
-
-@asyncio.coroutine
-def send_e2e(request):
-    post = (yield from request.post())
-
-    # Check API identity
-    if (post['from'], post['secret']) not in pytest.msgapi.api_identities:
-        return web.Response(status=401)
-
-    # Get ID, nonce and box
-    id_ = post['to']
-    nonce, box = binascii.unhexlify(post['nonce']), binascii.unhexlify(post['box'])
-
-    # Process
-    if post['from'] == pytest.msgapi.nocredit_id:
-        return web.Response(status=402)
-    elif id_ != 'ECHOECHO':
-        return web.Response(status=400)
-    elif len(nonce) != 24:
-        # Note: This status code might not be intended and may change in the future
-        return web.Response(status=400)
-    elif len(box) > 4000:
-        return web.Response(status=413)
-    return web.Response(body=b'1' * 16)
-
-
-@asyncio.coroutine
-def upload_blob(request):
-    try:
-        data = (yield from request.post())
-
-        # Check API identity
-        api_identity = (request.GET['from'], request.GET['secret'])
-        if api_identity not in pytest.msgapi.api_identities:
-            return web.Response(status=401)
-    except KeyError:
-        return web.Response(status=401)
-
-    try:
-        # Get blob
-        blob = data['blob'].file.read()
-    except KeyError:
-        # Note: This status code might not be intended and may change in the future
-        return web.Response(status=500)
-
-    # Generate ID
-    blob_id = hashlib.md5(blob).hexdigest()[16:]
-
-    # Process
-    if request.GET['from'] == pytest.msgapi.nocredit_id:
-        return web.Response(status=402)
-    elif len(blob) == 0:
-        return web.Response(status=400)
-    elif len(blob) > 20 * (2**20):
-        return web.Response(status=413)
-
-    # Store blob and return
-    _blobs[blob_id] = blob
-    _latest_blob_ids.append(blob_id)
-    return web.Response(body=blob_id.encode())
-
-
-@asyncio.coroutine
-def download_blob(request):
-    blob_id = request.match_info['blob_id']
-
-    # Check API identity
-    if (request.GET['from'], request.GET['secret']) not in pytest.msgapi.api_identities:
-        return web.Response(status=401)
-
-    # Get blob
-    try:
-        blob = _blobs[blob_id]
-    except KeyError:
-        return web.Response(status=404)
-    else:
-        return web.Response(
-            body=blob,
-            content_type='application/octet-stream'
-        )
-
-
-router = UrlDispatcher()
-router.add_route('GET', '/pubkeys/{key}', pubkeys)
-router.add_route('GET', '/lookup/phone/{phone}', lookup_phone)
-router.add_route('GET', '/lookup/phone_hash/{phone_hash}', lookup_phone_hash)
-router.add_route('GET', '/lookup/email/{email}', lookup_email)
-router.add_route('GET', '/lookup/email_hash/{email_hash}', lookup_email_hash)
-router.add_route('GET', '/capabilities/{id}', capabilities)
-router.add_route('GET', '/credits', credits)
-router.add_route('POST', '/send_simple', send_simple)
-router.add_route('POST', '/send_e2e', send_e2e)
-router.add_route('POST', '/upload_blob', upload_blob)
-router.add_route('GET', '/blobs/{blob_id}', download_blob)
+server = pytest.msgapi.Server()
 
 
 class RawMessage(e2e.Message):
@@ -237,12 +21,12 @@ class RawMessage(e2e.Message):
         self.message = message
 
     @asyncio.coroutine
-    def _pack(self, writer):
+    def pack(self, writer):
         raise NotImplementedError
 
     @classmethod
     @asyncio.coroutine
-    def _unpack(cls, connection, parameters, key_pair, reader):
+    def unpack(cls, connection, parameters, key_pair, reader):
         raise NotImplementedError
 
     @asyncio.coroutine
@@ -263,7 +47,7 @@ class RawMessage(e2e.Message):
 @asyncio.coroutine
 def get_latest_blob_ids(connection):
     blobs = [(yield from (yield from connection.download(blob_id)).read())
-             for blob_id in _latest_blob_ids]
+             for blob_id in server.latest_blob_ids]
     return blobs
 
 
@@ -289,7 +73,7 @@ class TestLookupPublicKey:
     @pytest.mark.asyncio
     def test_valid_id(self, connection):
         key = yield from connection.get_public_key('ECHOECHO')
-        assert key.hex_pk() == _echoecho_key
+        assert key.hex_pk() == server.echoecho_key
 
 
 class TestLookupIDByPhone:
@@ -486,14 +270,14 @@ class TestUploadBlob:
         blob_id = yield from connection.upload(bytes(20 * (2**20)))
         assert len(blob_id) == 16
         # Note: Remove big blob because further tests may hang
-        del _blobs[blob_id]
+        del server.blobs[blob_id]
 
     @pytest.mark.asyncio
     def test_too_big(self, connection):
         with pytest.raises(BlobServerError) as exc_info:
             blob_id = yield from connection.upload(bytes((20 * (2**20)) + 1))
             # Note: Remove big blob because further tests may hang
-            del _blobs[blob_id]
+            del server.blobs[blob_id]
         assert exc_info.value.status == 413
 
     @pytest.mark.asyncio
@@ -633,7 +417,7 @@ class TestSendE2E:
             yield from e2e.TextMessage(
                 connection=invalid_connection,
                 to_id='ECHOECHO',
-                key=_echoecho_encoded_key,
+                key=server.echoecho_encoded_key,
                 text='Hello'
             ).send()
         assert exc_info.value.status == 401
@@ -644,7 +428,7 @@ class TestSendE2E:
             yield from e2e.TextMessage(
                 connection=nocredit_connection,
                 to_id='ECHOECHO',
-                key=_echoecho_encoded_key,
+                key=server.echoecho_encoded_key,
                 text='Hello'
             ).send()
         assert exc_info.value.status == 402
@@ -666,7 +450,7 @@ class TestSendE2E:
             yield from e2e.TextMessage(
                 connection=connection,
                 to_id='00000000',
-                key=_echoecho_encoded_key,
+                key=server.echoecho_encoded_key,
                 text='Hello'
             ).send()
         assert exc_info.value.status == 400
@@ -695,50 +479,47 @@ class TestSendE2E:
         id_ = yield from e2e.TextMessage(
             connection=connection,
             to_id='ECHOECHO',
-            key=_echoecho_encoded_key,
+            key=server.echoecho_encoded_key,
             text='Hello'
         ).send()
         assert id_ == '1' * 16
 
     @pytest.mark.asyncio
     def test_image(self, connection):
-        global _latest_blob_ids
-        _latest_blob_ids = []
+        server.latest_blob_ids = []
         id_ = yield from e2e.ImageMessage(
             connection=connection,
             to_id='ECHOECHO',
-            key=_echoecho_encoded_key,
-            image_path=_threema_jpg
+            key=server.echoecho_encoded_key,
+            image_path=server.threema_jpg
         ).send()
         assert id_ == '1' * 16
-        assert len(_latest_blob_ids) == 1
+        assert len(server.latest_blob_ids) == 1
         assert all((yield from get_latest_blob_ids(connection)))
 
     @pytest.mark.asyncio
     def test_file(self, connection):
-        global _latest_blob_ids
-        _latest_blob_ids = []
+        server.latest_blob_ids = []
         id_ = yield from e2e.FileMessage(
             connection=connection,
             to_id='ECHOECHO',
-            key=_echoecho_encoded_key,
-            file_path=_threema_jpg
+            key=server.echoecho_encoded_key,
+            file_path=server.threema_jpg
         ).send()
         assert id_ == '1' * 16
-        assert len(_latest_blob_ids) == 1
+        assert len(server.latest_blob_ids) == 1
         assert all((yield from get_latest_blob_ids(connection)))
 
     @pytest.mark.asyncio
     def test_file_with_thumbnail(self, connection):
-        global _latest_blob_ids
-        _latest_blob_ids = []
+        server.latest_blob_ids = []
         id_ = yield from e2e.FileMessage(
             connection=connection,
             to_id='ECHOECHO',
-            key=_echoecho_encoded_key,
-            file_path=_threema_jpg,
-            thumbnail_path=_threema_jpg
+            key=server.echoecho_encoded_key,
+            file_path=server.threema_jpg,
+            thumbnail_path=server.threema_jpg
         ).send()
         assert id_ == '1' * 16
-        assert len(_latest_blob_ids) == 2
+        assert len(server.latest_blob_ids) == 2
         assert all((yield from get_latest_blob_ids(connection)))
