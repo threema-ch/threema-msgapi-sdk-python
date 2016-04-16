@@ -127,6 +127,8 @@ class AbstractCallback(metaclass=abc.ABCMeta):
     """
     def __init__(self, connection, certfile=None, keyfile=None, loop=None):
         self.connection = connection
+        # Note: I'm guessing here the secret must be ASCII
+        self.encoded_secret = connection.secret.encode('ascii')
         self.loop = asyncio.get_event_loop() if loop is None else loop
 
         # Create SSL context
@@ -229,21 +231,29 @@ class AbstractCallback(metaclass=abc.ABCMeta):
             raise CallbackError(400, str(exc)) from exc
 
         # Pass message to handler
-        yield from self.receive_message(message)
+        try:
+            yield from self.receive_message(message)
+        except TypeError:
+            # TODO: Log error that the inherited method 'receive_message' MUST
+            #       be a coroutine.
+            raise
 
         # Respond with 'OK'
         return web.Response(status=200)
 
     def validate_mac(self, expected_mac, response):
-        message = ''.join((
-            response['from'],
-            response['to'],
-            response['messageId'],
-            response['date'],
-            response['nonce'],
-            response['box'],
-        ))
-        hmac_ = hmac.new(self.connection.secret, msg=message, digestmod=hashlib.sha256)
+        try:
+            message = ''.join((
+                response['from'],
+                response['to'],
+                response['messageId'],
+                response['date'],
+                response['nonce'],
+                response['box'],
+            )).encode('ascii')
+        except UnicodeError as exc:
+            raise CallbackError(400, 'Cannot concatenate HMAC message') from exc
+        hmac_ = hmac.new(self.encoded_secret, msg=message, digestmod=hashlib.sha256)
         actual_mac = hmac_.hexdigest()
         if not hmac.compare_digest(expected_mac, actual_mac):
             raise CallbackError(400, 'MACs do not match')
