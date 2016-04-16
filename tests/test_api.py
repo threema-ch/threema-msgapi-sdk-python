@@ -3,7 +3,6 @@ The tests provided in this module have been tested for compliance with
 the Threema Gateway server. Obviously, the simulated server does not
 completely mimic the behaviour of the Gateway server.
 """
-import binascii
 import asyncio
 
 import pytest
@@ -11,41 +10,9 @@ import pytest
 from threema.gateway.exception import *
 from threema.gateway import simple, e2e, ReceptionCapability
 
-server = pytest.msgapi.Server()
-
-
-class RawMessage(e2e.Message):
-    def __init__(self, connection, nonce=None, message=None, **kwargs):
-        super().__init__(connection, e2e.Message.Type.text_message, **kwargs)
-        self.nonce = nonce
-        self.message = message
-
-    @asyncio.coroutine
-    def pack(self, writer):
-        raise NotImplementedError
-
-    @classmethod
-    @asyncio.coroutine
-    def unpack(cls, connection, parameters, key_pair, reader):
-        raise NotImplementedError
-
-    @asyncio.coroutine
-    def send(self):
-        """
-        Send the raw message
-
-        Return the ID of the message.
-        """
-        # Send message
-        return (yield from self._connection.send_e2e(**{
-            'to': self.to_id,
-            'nonce': binascii.hexlify(self.nonce).decode(),
-            'box': binascii.hexlify(self.message).decode()
-        }))
-
 
 @asyncio.coroutine
-def get_latest_blob_ids(connection):
+def get_latest_blob_ids(server, connection):
     blobs = [(yield from (yield from connection.download(blob_id)).read())
              for blob_id in server.latest_blob_ids]
     return blobs
@@ -71,7 +38,7 @@ class TestLookupPublicKey:
         assert exc_info.value.status == 404
 
     @pytest.mark.asyncio
-    def test_valid_id(self, connection):
+    def test_valid_id(self, connection, server):
         key = yield from connection.get_public_key('ECHOECHO')
         assert key.hex_pk() == server.echoecho_key
 
@@ -266,14 +233,14 @@ class TestUploadBlob:
         assert exc_info.value.status == 402
 
     @pytest.mark.asyncio
-    def test_just_ok(self, connection):
+    def test_just_ok(self, connection, server):
         blob_id = yield from connection.upload(bytes(20 * (2**20)))
-        assert len(blob_id) == 16
+        assert len(blob_id) == 32
         # Note: Remove big blob because further tests may hang
         del server.blobs[blob_id]
 
     @pytest.mark.asyncio
-    def test_too_big(self, connection):
+    def test_too_big(self, connection, server):
         with pytest.raises(BlobServerError) as exc_info:
             blob_id = yield from connection.upload(bytes((20 * (2**20)) + 1))
             # Note: Remove big blob because further tests may hang
@@ -288,7 +255,7 @@ class TestUploadBlob:
 
     @pytest.mark.asyncio
     def test_file(self, connection):
-        assert len((yield from connection.upload(b'\x01'))) == 16
+        assert len((yield from connection.upload(b'\x01'))) == 32
 
 
 class TestDownloadBlob:
@@ -412,7 +379,7 @@ class TestSendSimple:
 
 class TestSendE2E:
     @pytest.mark.asyncio
-    def test_invalid_identity(self, invalid_connection):
+    def test_invalid_identity(self, invalid_connection, server):
         with pytest.raises(MessageServerError) as exc_info:
             yield from e2e.TextMessage(
                 connection=invalid_connection,
@@ -423,7 +390,7 @@ class TestSendE2E:
         assert exc_info.value.status == 401
 
     @pytest.mark.asyncio
-    def test_insufficient_credits(self, nocredit_connection):
+    def test_insufficient_credits(self, nocredit_connection, server):
         with pytest.raises(MessageServerError) as exc_info:
             yield from e2e.TextMessage(
                 connection=nocredit_connection,
@@ -434,9 +401,9 @@ class TestSendE2E:
         assert exc_info.value.status == 402
 
     @pytest.mark.asyncio
-    def test_message_too_long(self, connection):
+    def test_message_too_long(self, connection, raw_message):
         with pytest.raises(MessageServerError) as exc_info:
-            yield from RawMessage(
+            yield from raw_message(
                 connection=connection,
                 to_id='ECHOECHO',
                 nonce=b'0' * 24,
@@ -445,7 +412,7 @@ class TestSendE2E:
         assert exc_info.value.status == 413
 
     @pytest.mark.asyncio
-    def test_unknown_id(self, connection):
+    def test_unknown_id(self, connection, server):
         with pytest.raises(MessageServerError) as exc_info:
             yield from e2e.TextMessage(
                 connection=connection,
@@ -456,8 +423,8 @@ class TestSendE2E:
         assert exc_info.value.status == 400
 
     @pytest.mark.asyncio
-    def test_raw(self, connection):
-        id_ = yield from RawMessage(
+    def test_raw(self, connection, raw_message):
+        id_ = yield from raw_message(
             connection=connection,
             to_id='ECHOECHO',
             nonce=b'0' * 24,
@@ -475,7 +442,7 @@ class TestSendE2E:
         assert id_ == '1' * 16
 
     @pytest.mark.asyncio
-    def test_via_id_and_key(self, connection):
+    def test_via_id_and_key(self, connection, server):
         id_ = yield from e2e.TextMessage(
             connection=connection,
             to_id='ECHOECHO',
@@ -485,7 +452,7 @@ class TestSendE2E:
         assert id_ == '1' * 16
 
     @pytest.mark.asyncio
-    def test_image(self, connection):
+    def test_image(self, connection, server):
         server.latest_blob_ids = []
         id_ = yield from e2e.ImageMessage(
             connection=connection,
@@ -495,10 +462,10 @@ class TestSendE2E:
         ).send()
         assert id_ == '1' * 16
         assert len(server.latest_blob_ids) == 1
-        assert all((yield from get_latest_blob_ids(connection)))
+        assert all((yield from get_latest_blob_ids(server, connection)))
 
     @pytest.mark.asyncio
-    def test_file(self, connection):
+    def test_file(self, connection, server):
         server.latest_blob_ids = []
         id_ = yield from e2e.FileMessage(
             connection=connection,
@@ -508,10 +475,10 @@ class TestSendE2E:
         ).send()
         assert id_ == '1' * 16
         assert len(server.latest_blob_ids) == 1
-        assert all((yield from get_latest_blob_ids(connection)))
+        assert all((yield from get_latest_blob_ids(server, connection)))
 
     @pytest.mark.asyncio
-    def test_file_with_thumbnail(self, connection):
+    def test_file_with_thumbnail(self, connection, server):
         server.latest_blob_ids = []
         id_ = yield from e2e.FileMessage(
             connection=connection,
@@ -522,4 +489,4 @@ class TestSendE2E:
         ).send()
         assert id_ == '1' * 16
         assert len(server.latest_blob_ids) == 2
-        assert all((yield from get_latest_blob_ids(connection)))
+        assert all((yield from get_latest_blob_ids(server, connection)))

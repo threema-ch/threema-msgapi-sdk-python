@@ -4,11 +4,14 @@ import asyncio.subprocess
 import copy
 import os
 import sys
-import hashlib
 import binascii
 import subprocess
+import time
+import hashlib
+import hmac
 
 import pytest
+import aiohttp
 
 import threema.gateway
 
@@ -17,19 +20,55 @@ from contextlib import closing
 from aiohttp import web
 from aiohttp.web_urldispatcher import UrlDispatcher
 
+from threema.gateway import e2e
 from threema.gateway.key import Key
 
-cli_path = os.path.join(os.path.dirname(__file__), '../threema-gateway')
+
+_res_path = os.path.normpath(os.path.join(
+    os.path.abspath(__file__), os.pardir, 'res'))
+
+
+class RawMessage(e2e.Message):
+    def __init__(self, connection, nonce=None, message=None, **kwargs):
+        super().__init__(connection, e2e.Message.Type.text_message, **kwargs)
+        self.nonce = nonce
+        self.message = message
+
+    @asyncio.coroutine
+    def pack(self, writer):
+        raise NotImplementedError
+
+    @classmethod
+    @asyncio.coroutine
+    def unpack(cls, connection, parameters, key_pair, reader):
+        raise NotImplementedError
+
+    @asyncio.coroutine
+    def send(self, get_data_only=False):
+        """
+        Send the raw message
+
+        Return the ID of the message.
+        """
+        # Send message
+        if get_data_only:
+            return self.nonce, self.message
+        else:
+            return (yield from self._connection.send_e2e(**{
+                'to': self.to_id,
+                'nonce': binascii.hexlify(self.nonce).decode(),
+                'box': binascii.hexlify(self.message).decode()
+            }))
 
 
 class Server:
     def __init__(self):
-        self.res_path = os.path.normpath(os.path.join(os.path.abspath(__file__),
-                                                      os.pardir, 'res'))
-        self.threema_jpg = os.path.join(self.res_path, 'threema.jpg')
+        self.threema_jpg = os.path.join(_res_path, 'threema.jpg')
         key = b'4a6a1b34dcef15d43cb74de2fd36091be99fbbaf126d099d47d83d919712c72b'
         self.echoecho_key = key
         self.echoecho_encoded_key = 'public:' + key.decode('ascii')
+        decoded_private_key = Key.decode(pytest.msgapi.private, Key.Type.private)
+        self.mocking_key = Key.derive_public(decoded_private_key).hex_pk()
         self.blobs = {}
         self.latest_blob_ids = []
 
@@ -57,6 +96,8 @@ class Server:
             return web.Response(status=404)
         elif key == 'ECHOECHO':
             return web.Response(body=self.echoecho_key)
+        elif key == '*MOCKING':
+            return web.Response(body=self.mocking_key)
         return web.Response(status=404)
 
     @asyncio.coroutine
@@ -121,6 +162,8 @@ class Server:
             return web.Response(status=401)
         elif id_ == 'ECHOECHO':
             return web.Response(body=b'text,image,video,file')
+        elif id_ == '*MOCKING':
+            return web.Response(body=b'text,image,file')
         return web.Response(status=404)
 
     @asyncio.coroutine
@@ -202,7 +245,7 @@ class Server:
             return web.Response(status=500)
 
         # Generate ID
-        blob_id = hashlib.md5(blob).hexdigest()[16:]
+        blob_id = hashlib.md5(blob).hexdigest()
 
         # Process
         if request.GET['from'] == pytest.msgapi.nocredit_id:
@@ -242,7 +285,8 @@ def pytest_namespace():
     private = 'private:dd9413d597092b004fedc4895db978425efa328ba1f1ec6729e46e09231b8a7e'
     public = Key.encode(Key.derive_public(Key.decode(private, Key.Type.private)))
     values = {'msgapi': {
-        'Server': Server,
+        'cli_path': os.path.join(os.path.dirname(__file__), '../threema-gateway'),
+        'cert_path': os.path.join(_res_path, 'cert.pem'),
         'base_url': 'https://msgapi.threema.ch',
         'ip': '127.0.0.1',
         'id': '*MOCKING',
@@ -273,6 +317,16 @@ def identity():
 
 
 @pytest.fixture(scope='module')
+def server():
+    return Server()
+
+
+@pytest.fixture(scope='module')
+def raw_message():
+    return RawMessage
+
+
+@pytest.fixture(scope='module')
 def event_loop(request):
     """
     Create an instance of the default event loop.
@@ -286,16 +340,14 @@ def event_loop(request):
 
 
 @pytest.fixture(scope='module')
-def port():
+def api_server_port():
     return unused_tcp_port()
 
 
 @pytest.fixture(scope='module')
-def server(request, event_loop, port):
-    router = getattr(request.module, 'router', None)
-    if router is None:
-        router = getattr(request.module, 'server').router
-    app = web.Application(loop=event_loop, router=router)
+def api_server(request, event_loop, api_server_port, server):
+    port = api_server_port
+    app = web.Application(loop=event_loop, router=server.router)
     handler = app.make_handler()
 
     # Set up server
@@ -314,15 +366,15 @@ def server(request, event_loop, port):
 
 
 @pytest.fixture(scope='module')
-def mock_url(port):
+def mock_url(api_server_port):
     """
     Return the URL where the test server can be reached.
     """
-    return 'http://{}:{}'.format(pytest.msgapi.ip, port)
+    return 'http://{}:{}'.format(pytest.msgapi.ip, api_server_port)
 
 
 @pytest.fixture(scope='module')
-def connection(request, server, mock_url):
+def connection(request, api_server, mock_url):
     # Note: We're not doing anything with the server but obviously the
     # server needs to be started to be able to connect
     connection_ = threema.gateway.Connection(
@@ -370,16 +422,16 @@ def blob_id(event_loop, connection, blob):
 
 
 @pytest.fixture(scope='module')
-def cli(server, port, event_loop):
+def cli(api_server, api_server_port, event_loop):
     @asyncio.coroutine
     def call_cli(*args, input=None, timeout=3.0):
         # Prepare environment
         env = os.environ.copy()
-        env['THREEMA_TEST_API'] = str(port)
+        env['THREEMA_TEST_API'] = str(api_server_port)
         test_api_mode = 'WARNING: Currently running in test mode!'
 
         # Call CLI in subprocess and get output
-        parameters = [sys.executable, cli_path] + list(args)
+        parameters = [sys.executable, pytest.msgapi.cli_path] + list(args)
         if isinstance(input, str):
             input = input.encode('utf-8')
 
@@ -443,3 +495,97 @@ def public_key_file(tmpdir_factory):
     file = tmpdir_factory.mktemp('keys').join('public_key')
     file.write(pytest.msgapi.public)
     return str(file)
+
+
+class Callback(e2e.AbstractCallback):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.queue = asyncio.Queue(loop=self.loop)
+
+    @asyncio.coroutine
+    def receive_message(self, message):
+        yield from self.queue.put(message)
+
+
+@pytest.fixture(scope='module')
+def callback(event_loop, connection):
+    cert_path = pytest.msgapi.cert_path
+    return Callback(connection, certfile=cert_path, loop=event_loop)
+
+
+@pytest.fixture(scope='module')
+def callback_server_port():
+    return unused_tcp_port()
+
+
+@pytest.fixture(scope='module')
+def callback_server(request, event_loop, callback, callback_server_port):
+    coroutine = callback.create_server(host=pytest.msgapi.ip, port=callback_server_port)
+    task = event_loop.create_task(coroutine)
+    event_loop.run_until_complete(task)
+    server = task.result()
+
+    def fin():
+        event_loop.run_until_complete(callback.handler.finish_connections(1.0))
+        server.close()
+        event_loop.run_until_complete(server.wait_closed())
+        event_loop.run_until_complete(callback.application.finish())
+
+    request.addfinalizer(fin)
+
+
+@pytest.fixture(scope='module')
+def callback_client(request, event_loop, callback_server):
+    # Note: This is ONLY required because we are using a self-signed certificate
+    #       for test purposes.
+    connector = aiohttp.TCPConnector(verify_ssl=False)
+    session = aiohttp.ClientSession(connector=connector, loop=event_loop)
+
+    def fin():
+        session.close()
+
+    request.addfinalizer(fin)
+    return session
+
+
+@pytest.fixture(scope='module')
+def callback_send(callback_client, callback_server_port, connection):
+    @asyncio.coroutine
+    def send(message):
+        # Get data from message
+        nonce, data = yield from message.send(get_data_only=True)
+
+        # Create callback parameters
+        params = {
+            'from': connection.id,
+            'to': message.to_id,
+            'messageId': hashlib.md5(message.to_id.encode('ascii')).hexdigest()[16:],
+            'date': str(time.time()),
+            'nonce': binascii.hexlify(nonce).decode('ascii'),
+            'box': binascii.hexlify(data).decode('ascii'),
+        }
+
+        # Calculate MAC
+        message = ''.join((params['from'], params['to'], params['messageId'],
+                           params['date'], params['nonce'], params['box']))
+        message = message.encode('ascii')
+        encoded_secret = connection.secret.encode('ascii')
+        hmac_ = hmac.new(encoded_secret, msg=message, digestmod=hashlib.sha256)
+        params['mac'] = hmac_.hexdigest()
+
+        # Send message
+        url = 'https://{}:{}/gateway_callback'.format(
+            pytest.msgapi.ip, callback_server_port)
+        return (yield from callback_client.post(url, data=params))
+
+    return send
+
+
+@pytest.fixture(scope='module')
+def callback_receive(event_loop, callback, callback_server):
+    @asyncio.coroutine
+    def receive(timeout=3.0):
+        coroutine = asyncio.wait_for(callback.queue.get(), timeout, loop=event_loop)
+        return (yield from coroutine)
+
+    return receive

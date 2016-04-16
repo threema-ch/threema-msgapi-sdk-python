@@ -591,7 +591,6 @@ class Message(metaclass=abc.ABCMeta):
         public = yield from connection.get_public_key(parameters['from_id'])
         return private, public
 
-    # TODO: Raises?
     @asyncio.coroutine
     def encrypt(self, data, key_pair=None, nonce=None):
         """
@@ -603,6 +602,8 @@ class Message(metaclass=abc.ABCMeta):
               public key of the recipient.
             - A predefined nonce.
 
+        Raises :exc:`MessageError` in case data could not be encrypted.
+
         Return a tuple of bytes containing the nonce and the encrypted
         data.
         """
@@ -611,9 +612,11 @@ class Message(metaclass=abc.ABCMeta):
             key_pair = yield from self.get_encrypt_key_pair
 
         # Encrypt
-        return _pk_encrypt(key_pair, data, nonce=nonce)
+        try:
+            return _pk_encrypt(key_pair, data, nonce=nonce)
+        except ValueError as exc:
+            raise MessageError('Could not encrypt data') from exc
 
-    # TODO: Raises?
     @classmethod
     def decrypt(cls, nonce, data, key_pair):
         """
@@ -625,10 +628,15 @@ class Message(metaclass=abc.ABCMeta):
             - `key_pair`: A tuple containing our private key and the
               public key of the sender.
 
+        Raises :exc:`MessageError` in case data could not be decrypted.
+
         Return decrypted data as :class:´bytes`.
         """
         # Decrypt
-        return _pk_decrypt(key_pair, nonce, data)
+        try:
+            return _pk_decrypt(key_pair, nonce, data)
+        except ValueError as exc:
+            raise MessageError('Could not decrypt data')
 
 
 # TODO: Update docstring (arguments)
@@ -638,24 +646,33 @@ class DeliveryReceipt(Message):
     Each delivery receipt message confirms the receipt of one
     or multiple regular text messages.
 
-    .. note:: Sending delivery receipts is not supported.
+    .. note:: Sending delivery receipts is not officially supported.
 
     Arguments:
         - `payload`: The remaining byte sequence of the message.
     """
-
     @enum.unique
-    class ReceiptType(enum.Enum):
+    class ReceiptType(enum.IntEnum):
         """Describes message receipt types."""
-        received = b'\x01'
-        read = b'\x02'
-        user_ack = b'\x03'
+        received = 0x01
+        read = 0x02
+        user_ack = 0x03
 
-    def __init__(self, connection, from_data=None, **kwargs):
+    def __init__(
+            self, connection, receipt_type=None, message_ids=None,
+            from_data=None, **kwargs
+    ):
         super().__init__(connection, Message.Type.delivery_receipt,
                          from_data=from_data, **kwargs)
-        self.receipt_type = from_data.get('receipt_type')
-        self.message_ids = from_data.get('message_ids')
+        if self._direction == self.Direction.outgoing:
+            if receipt_type is None or message_ids is None:
+                message = "Parameters 'receipt_type' and 'message_ids' are required"
+                raise ValueError(message)
+            self.receipt_type = receipt_type
+            self.message_ids = message_ids
+        else:
+            self.receipt_type = from_data.get('receipt_type')
+            self.message_ids = from_data.get('message_ids')
 
     def __str__(self):
         ids = (binascii.hexlify(id_).decode('ascii') for id_ in self.message_ids)
@@ -663,7 +680,13 @@ class DeliveryReceipt(Message):
 
     @asyncio.coroutine
     def pack(self, writer):
-        raise NotImplementedError('Sending delivery-receipts is not supported')
+        # Pack content
+        try:
+            writer.writeexactly(struct.pack('<B', self.receipt_type.value))
+        except struct.error as exc:
+            raise MessageError('Could not pack receipt type') from exc
+        for message_id in self.message_ids:
+            writer.writeexactly(message_id)
 
     @classmethod
     @asyncio.coroutine
@@ -674,7 +697,7 @@ class DeliveryReceipt(Message):
             raise MessageError('Invalid length')
 
         # Unpack content
-        formatter = '<1s' + '8s' * int((length - 1) // 8)
+        formatter = '<B' + '8s' * int((length - 1) // 8)
         data = reader.readexactly(length)
         try:
             receipt_type, *message_ids = struct.unpack(formatter, data)
@@ -877,7 +900,7 @@ class ImageMessage(Message):
         blob_id, image_length, image_nonce = data
 
         # Download and decrypt image
-        blob_id = binascii.hexlify(blob_id)
+        blob_id = binascii.hexlify(blob_id).decode('ascii')
         response = yield from connection.download(blob_id)
         image_data = yield from response.read()
         image = cls.decrypt(image_nonce, image_data, key_pair)
@@ -1051,11 +1074,14 @@ class FileMessage(Message):
     @asyncio.coroutine
     def unpack(cls, connection, parameters, key_pair, reader):
         # Get payload
-        content = reader.readexactly(len(reader))
+        try:
+            content = bytes(reader.readexactly(len(reader))).decode('ascii')
+        except UnicodeError as exc:
+            raise MessageError('Could not decode JSON') from exc
 
         # Unpack payload from JSON
         try:
-            json.loads(content)
+            content = json.loads(content)
         except UnicodeError as exc:
             raise MessageError('Could not decode JSON') from exc
         except ValueError as exc:

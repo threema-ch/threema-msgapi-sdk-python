@@ -6,8 +6,6 @@ from threema.gateway import __version__ as _version
 from threema.gateway import feature_level, ReceptionCapability
 from threema.gateway.key import Key
 
-server = pytest.msgapi.Server()
-
 
 class TestCLI:
     @pytest.mark.asyncio
@@ -37,7 +35,7 @@ class TestCLI:
         output = yield from cli('encrypt', pytest.msgapi.private, pytest.msgapi.public,
                                 input=input)
         nonce, data = output.splitlines()
-        output =yield from  cli('decrypt', pytest.msgapi.private, pytest.msgapi.public,
+        output = yield from cli('decrypt', pytest.msgapi.private, pytest.msgapi.public,
                                 nonce, input=data)
         assert input in output
 
@@ -94,7 +92,7 @@ class TestCLI:
         assert output
 
     @pytest.mark.asyncio
-    def test_send_e2e(self, cli):
+    def test_send_e2e(self, cli, server):
         output_1 = yield from cli(
             'send_e2e', 'ECHOECHO', pytest.msgapi.id, pytest.msgapi.secret,
             pytest.msgapi.private, input='Hello!')
@@ -106,7 +104,7 @@ class TestCLI:
         assert output_1 == output_2
 
     @pytest.mark.asyncio
-    def test_send_image(self, cli):
+    def test_send_image(self, cli, server):
         server.latest_blob_ids = []
         output_1 = yield from cli(
             'send_image', 'ECHOECHO', pytest.msgapi.id, pytest.msgapi.secret,
@@ -121,7 +119,7 @@ class TestCLI:
         assert len(server.latest_blob_ids) == 2
 
     @pytest.mark.asyncio
-    def test_send_file(self, cli):
+    def test_send_file(self, cli, server):
         server.latest_blob_ids = []
         output_1 = yield from cli(
             'send_file', 'ECHOECHO', pytest.msgapi.id, pytest.msgapi.secret,
@@ -170,7 +168,7 @@ class TestCLI:
         assert 'ECHOECHO' in output
 
     @pytest.mark.asyncio
-    def test_lookup_pk_by_id(self, cli):
+    def test_lookup_pk_by_id(self, cli, server):
         output = yield from cli('lookup', pytest.msgapi.id, pytest.msgapi.secret,
                                 '-i', 'ECHOECHO')
         assert server.echoecho_encoded_key in output
