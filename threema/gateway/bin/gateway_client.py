@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 The command line interface for the Threema gateway service.
 """
@@ -425,7 +424,7 @@ def credits(ctx, **arguments):
         click.echo((yield from connection.get_credits()))
 
 
-if __name__ == '__main__':
+def main():
     try:
         cli()
     except Exception as exc:

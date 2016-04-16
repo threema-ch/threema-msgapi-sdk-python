@@ -26,13 +26,10 @@ import itertools
 from ._gateway import *
 from ._gateway import __version__
 from .exception import *
-from . import simple, e2e, key, util
+from . import bin, simple, e2e, key, util
 
 __all__ = tuple(itertools.chain(
     _gateway.__all__,
     exception.__all__,
-    ('simple',
-     'e2e',
-     'key',
-     'util')
+    ('bin', 'simple', 'e2e', 'key', 'util')
 ))

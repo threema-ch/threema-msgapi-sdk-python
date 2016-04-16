@@ -33,7 +33,12 @@ setup(
         'pytest-asyncio>=0.2.0',
     ],
     include_package_data=True,
-    scripts=['threema-gateway'],
+    entry_points={
+        'console_scripts': [
+            'threema-gateway = threema.gateway.bin.gateway_client:main',
+            'threema-callback-server = threema.gateway.bin.callback_server:main',
+        ],
+    },
 
     # PyPI metadata
     author='Lennart Grahl',

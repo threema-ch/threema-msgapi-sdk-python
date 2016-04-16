@@ -174,7 +174,7 @@ class AbstractCallback(metaclass=abc.ABCMeta):
             # TODO: Log
             # Note: For security reasons, we do not send the reason
             return web.Response(status=exc.status)
-        except Exception as exc:
+        except Exception:
             # TODO: Log
             raise
 
