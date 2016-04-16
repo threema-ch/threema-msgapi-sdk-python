@@ -3,7 +3,7 @@ import subprocess
 import pytest
 
 from threema.gateway import __version__ as _version
-from threema.gateway import feature_level
+from threema.gateway import feature_level, ReceptionCapability
 from threema.gateway.key import Key
 
 server = pytest.msgapi.Server()
@@ -11,10 +11,25 @@ server = pytest.msgapi.Server()
 
 class TestCLI:
     @pytest.mark.asyncio
+    def test_invalid_command(self, cli):
+        with pytest.raises(subprocess.CalledProcessError):
+            yield from cli('meow')
+
+    @pytest.mark.asyncio
     def test_get_version(self, cli):
         output = yield from cli('version')
         assert 'Version: {}'.format(_version) in output
         assert 'Feature Level: {}'.format(feature_level) in output
+
+    @pytest.mark.asyncio
+    def test_invalid_key(self, cli):
+        with pytest.raises(subprocess.CalledProcessError) as exc_info:
+            yield from cli('encrypt', 'meow', 'meow', input='meow')
+        assert 'Invalid key format' in exc_info.value.output
+        with pytest.raises(subprocess.CalledProcessError) as exc_info:
+            yield from cli('encrypt', pytest.msgapi.public, pytest.msgapi.private,
+                            input='meow')
+        assert 'Invalid key type' in exc_info.value.output
 
     @pytest.mark.asyncio
     def test_encrypt_decrypt(self, cli):
@@ -77,3 +92,122 @@ class TestCLI:
         id_, secret = pytest.msgapi.id, pytest.msgapi.secret
         output = yield from cli('send_simple', 'ECHOECHO', id_, secret, input='Hello!')
         assert output
+
+    @pytest.mark.asyncio
+    def test_send_e2e(self, cli):
+        output_1 = yield from cli(
+            'send_e2e', 'ECHOECHO', pytest.msgapi.id, pytest.msgapi.secret,
+            pytest.msgapi.private, input='Hello!')
+        assert output_1
+        output_2 = yield from cli(
+            'send_e2e', 'ECHOECHO', pytest.msgapi.id, pytest.msgapi.secret,
+            pytest.msgapi.private, '-k', server.echoecho_encoded_key, input='Hello!')
+        assert output_2
+        assert output_1 == output_2
+
+    @pytest.mark.asyncio
+    def test_send_image(self, cli):
+        server.latest_blob_ids = []
+        output_1 = yield from cli(
+            'send_image', 'ECHOECHO', pytest.msgapi.id, pytest.msgapi.secret,
+            pytest.msgapi.private, server.threema_jpg)
+        assert output_1
+        assert len(server.latest_blob_ids) == 1
+        output_2 = yield from cli(
+            'send_image', 'ECHOECHO', pytest.msgapi.id, pytest.msgapi.secret,
+            pytest.msgapi.private, server.threema_jpg, '-k', server.echoecho_encoded_key)
+        assert output_2
+        assert output_1 == output_2
+        assert len(server.latest_blob_ids) == 2
+
+    @pytest.mark.asyncio
+    def test_send_file(self, cli):
+        server.latest_blob_ids = []
+        output_1 = yield from cli(
+            'send_file', 'ECHOECHO', pytest.msgapi.id, pytest.msgapi.secret,
+            pytest.msgapi.private, server.threema_jpg)
+        assert output_1
+        assert len(server.latest_blob_ids) == 1
+        output_2 = yield from cli(
+            'send_file', 'ECHOECHO', pytest.msgapi.id, pytest.msgapi.secret,
+            pytest.msgapi.private, server.threema_jpg, '-k', server.echoecho_encoded_key)
+        assert output_2
+        assert output_1 == output_2
+        assert len(server.latest_blob_ids) == 2
+        output = yield from cli(
+            'send_file', 'ECHOECHO', pytest.msgapi.id, pytest.msgapi.secret,
+            pytest.msgapi.private, server.threema_jpg, '-t', server.threema_jpg)
+        assert output
+        assert len(server.latest_blob_ids) == 4
+        output = yield from cli(
+            'send_file', 'ECHOECHO', pytest.msgapi.id, pytest.msgapi.secret,
+            pytest.msgapi.private, server.threema_jpg, '-k', server.echoecho_encoded_key,
+            '-t', server.threema_jpg)
+        assert output
+        assert len(server.latest_blob_ids) == 6
+
+    @pytest.mark.asyncio
+    def test_lookup_no_option(self, cli):
+        with pytest.raises(subprocess.CalledProcessError):
+            yield from cli('lookup', pytest.msgapi.id, pytest.msgapi.secret)
+
+    @pytest.mark.asyncio
+    def test_lookup_id_by_email(self, cli):
+        output = yield from cli('lookup', pytest.msgapi.id, pytest.msgapi.secret,
+                                '-e', 'echoecho@example.com')
+        assert 'ECHOECHO' in output
+        output = yield from cli('lookup', pytest.msgapi.id, pytest.msgapi.secret,
+                                '--email', 'echoecho@example.com')
+        assert 'ECHOECHO' in output
+
+    @pytest.mark.asyncio
+    def test_lookup_id_by_phone(self, cli):
+        output = yield from cli('lookup', pytest.msgapi.id, pytest.msgapi.secret,
+                                '-p', '44123456789')
+        assert 'ECHOECHO' in output
+        output = yield from cli('lookup', pytest.msgapi.id, pytest.msgapi.secret,
+                                '--phone', '44123456789')
+        assert 'ECHOECHO' in output
+
+    @pytest.mark.asyncio
+    def test_lookup_pk_by_id(self, cli):
+        output = yield from cli('lookup', pytest.msgapi.id, pytest.msgapi.secret,
+                                '-i', 'ECHOECHO')
+        assert server.echoecho_encoded_key in output
+        output = yield from cli('lookup', pytest.msgapi.id, pytest.msgapi.secret,
+                                '--id', 'ECHOECHO')
+        assert server.echoecho_encoded_key in output
+
+    @pytest.mark.asyncio
+    def test_capabilities(self, cli):
+        output = yield from cli('capabilities', pytest.msgapi.id, pytest.msgapi.secret,
+                                'ECHOECHO')
+        capabilities = {
+            ReceptionCapability.text,
+            ReceptionCapability.image,
+            ReceptionCapability.video,
+            ReceptionCapability.file
+        }
+        assert all((capability.value in output for capability in capabilities))
+
+    @pytest.mark.asyncio
+    def test_credits(self, cli):
+        output = yield from cli('credits', pytest.msgapi.id, pytest.msgapi.secret)
+        assert '100' in output
+        output = yield from cli('credits', pytest.msgapi.nocredit_id,
+                                pytest.msgapi.secret)
+        assert '0' in output
+
+    @pytest.mark.asyncio
+    def test_invalid_id(self, cli):
+        with pytest.raises(subprocess.CalledProcessError) as exc_info:
+            output = yield from cli('credits', pytest.msgapi.noexist_id,
+                                    pytest.msgapi.secret)
+        assert 'API identity or secret incorrect' in exc_info.value.output
+
+    @pytest.mark.asyncio
+    def test_insufficient_credits(self, cli):
+        with pytest.raises(subprocess.CalledProcessError) as exc_info:
+            id_, secret = pytest.msgapi.nocredit_id, pytest.msgapi.secret
+            yield from cli('send_simple', 'ECHOECHO', id_, secret, input='!')
+        assert 'Insufficient credits' in exc_info.value.output

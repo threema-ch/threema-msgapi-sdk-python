@@ -6,7 +6,6 @@ import re
 import binascii
 import functools
 import asyncio
-import sys
 import os
 
 import click
@@ -21,6 +20,8 @@ if _test_port is not None:
     _mock_url = 'http://{}:{}'.format('127.0.0.1', _test_port)
     Connection.urls = {key: value.replace('https://msgapi.threema.ch', _mock_url)
                        for key, value in Connection.urls.items()}
+    click.echo(('WARNING: Currently running in test mode!'
+                'The Threema Gateway Server will not be contacted!'), err=True)
 
 
 class _MockConnection:
@@ -60,9 +61,6 @@ def cli(ctx, verify_fingerprint, fingerprint):
         'verify_fingerprint': verify_fingerprint,
         'fingerprint': fingerprint
     }
-    if _test_port is not None:
-        click.echo(('WARNING: Currently running in test mode!'
-                    'The Threema Gateway Server will not be contacted!'), err=True)
 
 
 @cli.command(short_help='Show version information.', help="""

@@ -18,6 +18,7 @@ __all__ = (
 )
 
 
+# TODO: Raises
 def read_key_or_key_file(key, expected_type):
     """
     Decode a hex-encoded key or read it from a file.

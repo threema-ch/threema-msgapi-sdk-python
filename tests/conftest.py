@@ -392,9 +392,6 @@ def cli(server, port, event_loop):
         # Wait for process to terminate
         coroutine = process.communicate(input=input)
         output, _ = yield from asyncio.wait_for(coroutine, timeout, loop=event_loop)
-        if process.returncode != 0:
-            raise subprocess.CalledProcessError(process.returncode, parameters,
-                                                output=output)
 
         # Process output
         output = output.decode('utf-8')
@@ -424,7 +421,13 @@ def cli(server, port, event_loop):
             empty_lines_count += 1
         if empty_lines_count > 0:
             lines = lines[:-empty_lines_count]
-        return ''.join(lines)
+        output = ''.join(lines)
+
+        # Check return code
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, parameters,
+                                                output=output)
+        return output
     return call_cli
 
 
