@@ -4,7 +4,10 @@ service with your account.
 """
 import asyncio
 
-from threema.gateway import Connection, MessageError
+import logbook
+import logbook.more
+
+from threema.gateway import util, Connection, GatewayError
 from threema.gateway.simple import TextMessage
 
 
@@ -55,10 +58,14 @@ def main():
             yield from send_via_id(connection)
             yield from send_via_email(connection)
             yield from send_via_phone(connection)
-    except MessageError as exc:
+    except GatewayError as exc:
         print('Error:', exc)
 
 
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+    util.enable_logging(logbook.WARNING)
+    log_handler = logbook.more.ColorizedStderrHandler()
+    with log_handler.applicationbound():
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main())
+        loop.close()

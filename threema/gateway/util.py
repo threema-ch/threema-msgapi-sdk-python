@@ -6,16 +6,96 @@ import io
 import os
 
 import libnacl
+import logging
+import logbook
+import logbook.compat
+import logbook.more
 
 from .key import Key
 
 __all__ = (
+    'enable_logging',
+    'disable_logging',
+    'get_logger',
     'read_key_or_key_file',
     'raise_server_error',
     'randint',
     'ViewIOReader',
     'ViewIOWriter',
 )
+
+_logger_group = logbook.LoggerGroup()
+_logger_group.disabled = True
+_logger_redirect_handler = logbook.compat.RedirectLoggingHandler()
+_logger_convert_level_handler = logbook.compat.LoggingHandler()
+
+
+def _convert_level(logging_level):
+    return _logger_convert_level_handler.convert_level(logging_level)
+
+
+def enable_logging(level=logbook.WARNING, asyncio_level=None, aiohttp_level=None):
+    # Determine levels
+    level = logbook.lookup_level(level)
+    converted_level = _convert_level(level)
+    if asyncio_level is None:
+        asyncio_level = converted_level
+    else:
+        asyncio_level = _convert_level(asyncio_level)
+    if aiohttp_level is None:
+        aiohttp_level = converted_level
+    else:
+        aiohttp_level = _convert_level(aiohttp_level)
+
+    # Enable logger group
+    _logger_group.disabled = False
+
+    # Enable asyncio debug logging
+    os.environ['PYTHONASYNCIODEBUG'] = '1'
+
+    # Redirect asyncio logger
+    logger = logging.getLogger('asyncio')
+    logger.setLevel(asyncio_level)
+    logger.addHandler(_logger_redirect_handler)
+
+    # Redirect aiohttp logger
+    logger = logging.getLogger('aiohttp')
+    logger.setLevel(aiohttp_level)
+    logger.addHandler(_logger_redirect_handler)
+
+
+def disable_logging():
+    # Reset aiohttp logger
+    logger = logging.getLogger('aiohttp')
+    logger.removeHandler(_logger_redirect_handler)
+    logger.setLevel(logging.NOTSET)
+
+    # Reset asyncio logger
+    logger = logging.getLogger('asyncio')
+    logger.removeHandler(_logger_redirect_handler)
+    logger.setLevel(logging.NOTSET)
+
+    # Disable asyncio debug logging
+    del os.environ['PYTHONASYNCIODEBUG']
+
+    # Disable logger group
+    _logger_group.disabled = True
+
+
+def get_logger(name=None, level=logbook.NOTSET):
+    """
+    Return a :class:`logbook.Logger`.
+
+    Arguments:
+        - `name`: The name of a specific sub-logger.
+    """
+    base_name = 'threema.gateway'
+    name = base_name if name is None else '.'.join((base_name, name))
+
+    # Create new logger and add to group
+    logger = logbook.Logger(name=name, level=level)
+    _logger_group.add_logger(logger)
+    return logger
 
 
 # TODO: Raises

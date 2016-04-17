@@ -4,7 +4,10 @@ service with your end-to-end account.
 """
 import asyncio
 
-from threema.gateway import Connection, MessageError
+import logbook
+import logbook.more
+
+from threema.gateway import util, Connection, GatewayError
 from threema.gateway.e2e import TextMessage, ImageMessage, FileMessage
 
 
@@ -122,10 +125,14 @@ def main():
             yield from send_image(connection)
             yield from send_file(connection)
             yield from send_file_with_thumbnail(connection)
-    except MessageError as exc:
+    except GatewayError as exc:
         print('Error:', exc)
 
 
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+    util.enable_logging(logbook.WARNING)
+    log_handler = logbook.more.ColorizedStderrHandler()
+    with log_handler.applicationbound():
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main())
+        loop.close()

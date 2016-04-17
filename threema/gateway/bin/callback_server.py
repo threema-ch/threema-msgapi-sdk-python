@@ -5,11 +5,24 @@ import functools
 import asyncio
 
 import click
+import logbook
+import logbook.more
 
 from threema.gateway import __version__ as _version
 from threema.gateway import util, Connection
 from threema.gateway.key import Key
 from threema.gateway.e2e import AbstractCallback
+
+_logging_handler = None
+_logging_levels = {
+    1: logbook.CRITICAL,
+    2: logbook.ERROR,
+    3: logbook.WARNING,
+    4: logbook.NOTICE,
+    5: logbook.INFO,
+    6: logbook.DEBUG,
+    7: logbook.TRACE,
+}
 
 
 class Callback(AbstractCallback):
@@ -39,6 +52,7 @@ def aio_serve(close_func):
             task = loop.create_task(close_func(open_result))
             loop.run_until_complete(task)
             close_result = task.result()
+            loop.close()
             click.echo('Closed')
             return open_result, close_result
 
@@ -48,11 +62,31 @@ def aio_serve(close_func):
 
 
 @click.group()
+@click.option('-v', '--verbosity', type=click.IntRange(0, len(_logging_levels)),
+              default=0, help="Logging verbosity.")
+@click.option('-c', '--colored', is_flag=True, help='Colourise logging output.')
 @click.pass_context
-def cli(ctx):
+def cli(ctx, verbosity, colored):
     """
     Command Line Interface. Use --help for details.
     """
+    if verbosity > 0:
+        # Enable logging
+        util.enable_logging(level=_logging_levels[verbosity])
+
+        # Get handler class
+        if colored:
+            handler_class = logbook.more.ColorizedStderrHandler
+        else:
+            handler_class = logbook.StderrHandler
+
+        # Set up logging handler
+        handler = handler_class(level=_logging_levels[verbosity])
+        handler.push_application()
+        global _logging_handler
+        _logging_handler = handler
+
+    # Create context object
     ctx.obj = {}
 
 
@@ -106,10 +140,12 @@ def serve(**arguments):
 
 
 def main():
-    # with server.logging_handler.applicationbound():
     try:
         cli()
     except Exception as exc:
         click.echo('An error occurred:', err=True)
         click.echo(exc, err=True)
         raise
+    finally:
+        if _logging_handler is not None:
+            _logging_handler.pop_application()
