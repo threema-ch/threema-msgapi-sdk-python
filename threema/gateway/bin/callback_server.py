@@ -18,21 +18,33 @@ class Callback(AbstractCallback):
         click.echo('Got message ({}): {}'.format(repr(message), message))
 
 
-def aio_run(func, run_forever=False):
-    func = asyncio.coroutine(func)
+def aio_serve(close_func):
+    loop = asyncio.get_event_loop()
 
-    def _wrapper(*args, **kwargs):
-        loop = asyncio.get_event_loop()
-        task = loop.create_task(func(*args, **kwargs))
-        loop.run_until_complete(task)
-        if run_forever:
-            loop.run_forever()
-        return task.result()
-    return functools.update_wrapper(_wrapper, func)
+    def decorator(func):
+        func = asyncio.coroutine(func)
 
+        def wrapper(*args, **kwargs):
+            # Start
+            click.echo('Starting')
+            task = loop.create_task(func(*args, **kwargs))
+            loop.run_until_complete(task)
+            open_result = task.result()
+            click.echo('Started')
+            try:
+                loop.run_forever()
+            except KeyboardInterrupt:
+                pass
+            click.echo('Closing')
+            task = loop.create_task(close_func(open_result))
+            loop.run_until_complete(task)
+            close_result = task.result()
+            click.echo('Closed')
+            return open_result, close_result
 
-def aio_serve(func):
-    return aio_run(func, run_forever=True)
+        return functools.update_wrapper(wrapper, func)
+
+    return decorator
 
 
 @click.group()
@@ -51,6 +63,15 @@ def version():
     click.echo('Version: {}'.format(_version))
 
 
+@asyncio.coroutine
+def close_server(server_and_callback):
+    server, callback = server_and_callback
+    yield from callback.handler.finish_connections(1.0)
+    server.close()
+    yield from server.wait_closed()
+    yield from callback.application.finish()
+
+
 @cli.command(short_help='Start the callback server.', help="""
 Start the Threema Gateway Callback Server.
 FROM is the API identity and SECRET is the API secret.
@@ -65,7 +86,7 @@ Path to a file that contains the private key. Will be read from
 CERTFILE if not present.""")
 @click.option('-h', '--host', help='Bind to a specific host.')
 @click.option('-p', '--port', default=443, help='Listen on a specific port.')
-@aio_serve
+@aio_serve(close_server)
 def serve(**arguments):
     # Get arguments
     identity = arguments['identity']
@@ -81,7 +102,7 @@ def serve(**arguments):
     callback = Callback(connection, certfile=certfile, keyfile=keyfile)
 
     # Create server
-    yield from callback.create_server(host=host, port=port)
+    return (yield from callback.create_server(host=host, port=port)), callback
 
 
 def main():
