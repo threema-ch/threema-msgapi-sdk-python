@@ -11,7 +11,7 @@ from .util import raise_server_error
 
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
-__version__ = '2.1.6'
+__version__ = '3.0.0'
 __all__ = (
     'feature_level',
     'ReceptionCapability',
