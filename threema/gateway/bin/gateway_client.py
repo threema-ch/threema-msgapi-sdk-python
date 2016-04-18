@@ -52,9 +52,7 @@ def aio_run(func):
 
     def _wrapper(*args, **kwargs):
         loop = asyncio.get_event_loop()
-        task = loop.create_task(func(*args, **kwargs))
-        loop.run_until_complete(task)
-        result = task.result()
+        result = loop.run_until_complete(func(*args, **kwargs))
         loop.close()
         return result
     return functools.update_wrapper(_wrapper, func)
@@ -471,3 +469,6 @@ def main():
     finally:
         if _logging_handler is not None:
             _logging_handler.pop_application()
+
+if __name__ == '__main__':
+    main()

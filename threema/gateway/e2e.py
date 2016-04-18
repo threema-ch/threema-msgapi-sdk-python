@@ -125,31 +125,20 @@ class AbstractCallback(metaclass=abc.ABCMeta):
     Raises :exc:`TypeError` in case no valid certificate has been
     provided.
     """
-    def __init__(self, connection, certfile=None, keyfile=None, loop=None):
+    def __init__(self, connection, loop=None):
         self.connection = connection
         # Note: I'm guessing here the secret must be ASCII
         self.encoded_secret = connection.secret.encode('ascii')
         self.loop = asyncio.get_event_loop() if loop is None else loop
-
-        # Create SSL context
-        self.ssl_context = self.create_ssl_context(certfile, keyfile)
-
         # Create router
         self.router = self.create_router()
-
         # Create application
         self.application = self.create_application(self.router, loop)
         self.handler = self.create_handler()
-
-    @asyncio.coroutine
-    def create_server(self, host=None, port=443, **kwargs):
-        # noinspection PyArgumentList
-        server = yield from self.loop.create_server(
-            self.handler, host=host, port=port, ssl=self.ssl_context, **kwargs)
-        return server
+        self.server = None
 
     # noinspection PyMethodMayBeStatic
-    def create_ssl_context(self, certfile, keyfile):
+    def create_ssl_context(self, certfile, keyfile=None):
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ssl_context.load_cert_chain(certfile=certfile, keyfile=keyfile)
         return ssl_context
@@ -165,6 +154,23 @@ class AbstractCallback(metaclass=abc.ABCMeta):
 
     def create_handler(self):
         return self.application.make_handler()
+
+    @asyncio.coroutine
+    def create_server(self, certfile, keyfile=None, host=None, port=443, **kwargs):
+        # Create SSL context
+        ssl_context = self.create_ssl_context(certfile, keyfile=keyfile)
+        # Create server
+        # noinspection PyArgumentList
+        server = yield from self.loop.create_server(
+            self.handler, host=host, port=port, ssl=ssl_context, **kwargs)
+        return server
+
+    @asyncio.coroutine
+    def close(self, timeout=10.0):
+        # Stop handler and application
+        yield from self.application.shutdown()
+        yield from self.handler.finish_connections(timeout=timeout)
+        yield from self.application.cleanup()
 
     @asyncio.coroutine
     def _handle_and_catch_error(self, request):

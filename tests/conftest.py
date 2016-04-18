@@ -285,7 +285,10 @@ def pytest_namespace():
     private = 'private:dd9413d597092b004fedc4895db978425efa328ba1f1ec6729e46e09231b8a7e'
     public = Key.encode(Key.derive_public(Key.decode(private, Key.Type.private)))
     values = {'msgapi': {
-        'cli_path': os.path.join(os.path.dirname(__file__), '../threema-gateway'),
+        'cli_path': os.path.join(
+            os.path.dirname(__file__),
+            '../threema/gateway/bin/gateway_client.py',
+        ),
         'cert_path': os.path.join(_res_path, 'cert.pem'),
         'base_url': 'https://msgapi.threema.ch',
         'ip': '127.0.0.1',
@@ -352,15 +355,13 @@ def api_server(request, event_loop, api_server_port, server):
 
     # Set up server
     coroutine = event_loop.create_server(handler, host=pytest.msgapi.ip, port=port)
-    task = event_loop.create_task(coroutine)
-    event_loop.run_until_complete(task)
-    server_ = task.result()
+    server_ = event_loop.run_until_complete(coroutine)
 
     def fin():
         event_loop.run_until_complete(handler.finish_connections(1.0))
         server_.close()
         event_loop.run_until_complete(server_.wait_closed())
-        event_loop.run_until_complete(app.finish())
+        event_loop.run_until_complete(app.cleanup())
 
     request.addfinalizer(fin)
 
@@ -416,9 +417,7 @@ def blob():
 @pytest.fixture(scope='module')
 def blob_id(event_loop, connection, blob):
     coroutine = connection.upload(blob)
-    task = event_loop.create_task(coroutine)
-    event_loop.run_until_complete(task)
-    return task.result()
+    return event_loop.run_until_complete(coroutine)
 
 
 @pytest.fixture(scope='module')
@@ -448,6 +447,7 @@ def cli(api_server, api_server_port, event_loop):
         # Process output
         output = output.decode('utf-8')
         if test_api_mode not in output:
+            print(output)
             raise ValueError('Not running in test mode')
 
         # Strip leading empty lines and pydev debugger output
@@ -509,8 +509,7 @@ class Callback(e2e.AbstractCallback):
 
 @pytest.fixture(scope='module')
 def callback(event_loop, connection):
-    cert_path = pytest.msgapi.cert_path
-    return Callback(connection, certfile=cert_path, loop=event_loop)
+    return Callback(connection, loop=event_loop)
 
 
 @pytest.fixture(scope='module')
@@ -520,16 +519,14 @@ def callback_server_port():
 
 @pytest.fixture(scope='module')
 def callback_server(request, event_loop, callback, callback_server_port):
-    coroutine = callback.create_server(host=pytest.msgapi.ip, port=callback_server_port)
-    task = event_loop.create_task(coroutine)
-    event_loop.run_until_complete(task)
-    server = task.result()
+    cert_path = pytest.msgapi.cert_path
+    server_ = event_loop.run_until_complete(callback.create_server(
+        certfile=cert_path, host=pytest.msgapi.ip, port=callback_server_port))
 
     def fin():
-        event_loop.run_until_complete(callback.handler.finish_connections(1.0))
-        server.close()
-        event_loop.run_until_complete(server.wait_closed())
-        event_loop.run_until_complete(callback.application.finish())
+        server_.close()
+        event_loop.run_until_complete(server_.wait_closed())
+        event_loop.run_until_complete(callback.close())
 
     request.addfinalizer(fin)
 

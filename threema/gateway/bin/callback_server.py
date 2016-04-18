@@ -40,18 +40,14 @@ def aio_serve(close_func):
         def wrapper(*args, **kwargs):
             # Start
             click.echo('Starting')
-            task = loop.create_task(func(*args, **kwargs))
-            loop.run_until_complete(task)
-            open_result = task.result()
+            open_result = loop.run_until_complete(func(*args, **kwargs))
             click.echo('Started')
             try:
                 loop.run_forever()
             except KeyboardInterrupt:
                 pass
             click.echo('Closing')
-            task = loop.create_task(close_func(open_result))
-            loop.run_until_complete(task)
-            close_result = task.result()
+            close_result = loop.run_until_complete(close_func(open_result))
             loop.close()
             click.echo('Closed')
             return open_result, close_result
@@ -100,10 +96,9 @@ def version():
 @asyncio.coroutine
 def close_server(server_and_callback):
     server, callback = server_and_callback
-    yield from callback.handler.finish_connections(1.0)
     server.close()
     yield from server.wait_closed()
-    yield from callback.application.finish()
+    yield from callback.close()
 
 
 @cli.command(short_help='Start the callback server.', help="""
@@ -133,10 +128,12 @@ def serve(**arguments):
 
     # Create connection and callback instances
     connection = Connection(identity=identity, secret=secret, key=private_key)
-    callback = Callback(connection, certfile=certfile, keyfile=keyfile)
+    callback = Callback(connection)
 
     # Create server
-    return (yield from callback.create_server(host=host, port=port)), callback
+    coroutine = callback.create_server(certfile, keyfile=keyfile, host=host, port=port)
+    server = yield from coroutine
+    return server, callback
 
 
 def main():
@@ -149,3 +146,6 @@ def main():
     finally:
         if _logging_handler is not None:
             _logging_handler.pop_application()
+
+if __name__ == '__main__':
+    main()
