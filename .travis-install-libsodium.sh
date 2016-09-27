@@ -2,7 +2,6 @@
 set -ev
 
 if [ -d "${HOME}/libsodium" ]; then
-    ls -l ${HOME}/libsodium
     exit 0;
 fi
 
