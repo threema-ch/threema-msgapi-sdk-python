@@ -34,7 +34,7 @@ install:
 
 # Run tests
 script:
-  - py.test --cov-config .coveragerc --cov=threema --loop=$EVENT_LOOP
+  - py.test --cov-config .coveragerc --cov=threema.gateway --loop=$EVENT_LOOP
 
 # After success
 after_success:
