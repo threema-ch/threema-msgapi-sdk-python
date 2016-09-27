@@ -1,5 +1,8 @@
 # Threema Gateway API
 
+[![Travis](https://travis-ci.org/lgrahl/threema-msgapi-sdk-python.svg?branch=master)](https://travis-ci.org/lgrahl/threema-msgapi-sdk-python)
+[![codecov](https://codecov.io/gh/lgrahl/threema-msgapi-sdk-python/branch/master/graph/badge.svg)](https://codecov.io/gh/lgrahl/threema-msgapi-sdk-python)
+
 **threema-gateway** is a Python 3 module for the Threema gateway service. This API can
 be used to send and receive text messages to and from any Threema user.
 
