@@ -27,7 +27,6 @@ matrix:
 before_install:
   - ./.travis-install-libsodium.sh
   - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${HOME}/libsodium/lib
-  - ls -la ${HOME}/libsodium
 install:
   - pip install .
   - pip install pytest-asyncio pytest-cov
