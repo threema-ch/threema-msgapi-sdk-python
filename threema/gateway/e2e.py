@@ -641,7 +641,7 @@ class Message(metaclass=abc.ABCMeta):
         # Decrypt
         try:
             return _pk_decrypt(key_pair, nonce, data)
-        except ValueError as exc:
+        except ValueError:
             raise MessageError('Could not decrypt data')
 
 

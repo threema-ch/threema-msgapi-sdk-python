@@ -75,7 +75,9 @@ class TestCallback:
         assert outgoing.file_content == incoming.file_content
 
     @pytest.mark.asyncio
-    def test_file_message_thumb(self, connection, callback_send, callback_receive, server):
+    def test_file_message_thumb(
+            self, connection, callback_send, callback_receive, server
+    ):
         outgoing = e2e.FileMessage(
             connection,
             to_id=pytest.msgapi.id,

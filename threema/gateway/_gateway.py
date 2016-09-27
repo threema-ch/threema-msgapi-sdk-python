@@ -7,18 +7,12 @@ import libnacl.encode
 
 from .exception import *
 from .key import Key
-from .util import raise_server_error
+from .util import raise_server_error, async_lru_cache
 
-__author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
-__status__ = 'Production'
-__version__ = '3.0.0'
 __all__ = (
-    'feature_level',
     'ReceptionCapability',
     'Connection',
 )
-
-feature_level = 3
 
 
 @enum.unique
@@ -128,6 +122,7 @@ class Connection:
         self._key_file = key_file
 
     @asyncio.coroutine
+    @async_lru_cache(maxsize=1024, expiration=60 * 60)
     def get_public_key(self, id_):
         """
         Get the public key of a Threema ID.
@@ -146,6 +141,7 @@ class Connection:
             yield from raise_server_error(response, KeyServerError)
 
     @asyncio.coroutine
+    @async_lru_cache(maxsize=1024, expiration=60 * 60)
     def get_id(self, **mode):
         """
         Get a user's Threema ID.
@@ -173,7 +169,8 @@ class Connection:
         # Check mode
         if len(set(mode) - set(modes)) > 0:
             raise IDError('Unknown mode selected: {}'.format(set(mode)))
-        if len(mode) > 1:
+        mode_length = len(mode)
+        if mode_length > 1 or mode_length == 0:
             raise IDError('Use (only) one of the possible modes to get a Threema ID')
 
         # Select mode and start request
@@ -185,6 +182,7 @@ class Connection:
             yield from raise_server_error(response, IDServerError)
 
     @asyncio.coroutine
+    @async_lru_cache(maxsize=128, expiration=5 * 60)
     def get_reception_capabilities(self, id_):
         """
         Get the reception capabilities of a Threema ID.

@@ -24,11 +24,17 @@ The mode that you can use depends on the way your account was set up.
 import itertools
 
 from ._gateway import *
-from ._gateway import __version__
 from .exception import *
+# noinspection PyUnresolvedReferences
 from . import bin, simple, e2e, key, util
 
+__author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
+__status__ = 'Production'
+__version__ = '3.0.0'
+feature_level = 3
+
 __all__ = tuple(itertools.chain(
+    ('feature_level',),
     _gateway.__all__,
     exception.__all__,
     ('bin', 'simple', 'e2e', 'key', 'util')

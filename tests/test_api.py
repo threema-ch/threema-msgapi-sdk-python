@@ -43,24 +43,24 @@ class TestLookupPublicKey:
         assert key.hex_pk() == server.echoecho_key
 
     @pytest.mark.asyncio
-    def test_cache_expiration(self, connection):
+    def test_cache_expiration(self, connection, server):
         connection.get_public_key.cache_clear()
         connection.get_public_key.cache.expiration = 0.05
         for _ in range(10):
-            yield from self.test_valid_id(connection)
+            yield from self.test_valid_id(connection, server)
         cache_info = connection.get_public_key.cache_info()
         assert cache_info.misses == 1
         assert cache_info.hits == 9
-        yield from asyncio.sleep(0.2)
-        yield from self.test_valid_id(connection)
+        yield from asyncio.sleep(1.0)
+        yield from self.test_valid_id(connection, server)
         cache_info = connection.get_public_key.cache_info()
         assert cache_info.misses == 2
 
     @pytest.mark.asyncio
-    def test_cache_hits(self, connection):
+    def test_cache_hits(self, connection, server):
         connection.get_public_key.cache_clear()
         for _ in range(1000):
-            yield from self.test_valid_id(connection)
+            yield from self.test_valid_id(connection, server)
         cache_info = connection.get_public_key.cache_info()
         assert cache_info.misses == 1
         assert cache_info.hits == 999

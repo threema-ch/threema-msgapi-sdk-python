@@ -2,17 +2,18 @@
 Utility functions.
 """
 import asyncio
-import collections
-import functools
 import io
 import os
+import collections
+import functools
+import logging
 
 import libnacl
-import lru
-import logging
 import logbook
 import logbook.compat
 import logbook.more
+# noinspection PyPackageRequirements
+import lru
 
 from .key import Key
 
