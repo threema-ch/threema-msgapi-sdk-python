@@ -281,6 +281,15 @@ class Server:
             )
 
 
+def pytest_addoption(parser):
+    help_ = 'loop: Use a different event loop, supported: asyncio, uvloop'
+    parser.addoption("--loop", action="store", help=help_)
+
+
+def pytest_report_header(config):
+    return 'Using event loop: {}'.format(default_event_loop(config=config))
+
+
 def pytest_namespace():
     private = 'private:dd9413d597092b004fedc4895db978425efa328ba1f1ec6729e46e09231b8a7e'
     public = Key.encode(Key.derive_public(Key.decode(private, Key.Type.private)))
@@ -304,6 +313,18 @@ def pytest_namespace():
         (values['msgapi']['nocredit_id'], values['msgapi']['secret'])
     }
     return values
+
+
+def default_event_loop(request=None, config=None):
+    if request is not None:
+        config = request.config
+    loop = config.getoption("--loop")
+    if loop == 'uvloop':
+        import uvloop
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    else:
+        loop = 'asyncio'
+    return loop
 
 
 def unused_tcp_port():
@@ -332,13 +353,23 @@ def raw_message():
 @pytest.fixture(scope='module')
 def event_loop(request):
     """
-    Create an instance of the default event loop.
+    Create an instance of the requested event loop.
     """
+    default_event_loop(request=request)
+
+    # Close previous event loop
     policy = asyncio.get_event_loop_policy()
     policy.get_event_loop().close()
+
+    # Create new event loop
     _event_loop = policy.new_event_loop()
     policy.set_event_loop(_event_loop)
-    request.addfinalizer(_event_loop.close)
+
+    def fin():
+        _event_loop.close()
+
+    # Add finaliser and return new event loop
+    request.addfinalizer(fin)
     return _event_loop
 
 
