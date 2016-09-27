@@ -8,7 +8,6 @@ from threema.gateway import e2e
 class TestCallback:
     @pytest.mark.asyncio
     def test_invalid_message(self, connection, callback_send, raw_message):
-        yield from asyncio.sleep(1.0)  # Give the server a little time to prepare
         outgoing = raw_message(
             connection=connection,
             to_id=pytest.msgapi.id,
