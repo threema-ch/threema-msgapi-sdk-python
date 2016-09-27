@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 The command line interface for the Threema gateway service.
 """
@@ -6,12 +5,46 @@ import re
 import binascii
 import functools
 import asyncio
+import os
 
 import click
+import logbook
+import logbook.more
 
 from threema.gateway import __version__ as _version
 from threema.gateway import feature_level, simple, e2e, util, Connection
 from threema.gateway.key import HMAC, Key
+
+_logging_handler = None
+_logging_levels = {
+    1: logbook.CRITICAL,
+    2: logbook.ERROR,
+    3: logbook.WARNING,
+    4: logbook.NOTICE,
+    5: logbook.INFO,
+    6: logbook.DEBUG,
+    7: logbook.TRACE,
+}
+
+# Apply mock URL when starting CLI in debug mode
+_test_port = os.environ.get('THREEMA_TEST_API')
+if _test_port is not None:
+    _mock_url = 'http://{}:{}'.format('127.0.0.1', _test_port)
+    Connection.urls = {key: value.replace('https://msgapi.threema.ch', _mock_url)
+                       for key, value in Connection.urls.items()}
+    click.echo(('WARNING: Currently running in test mode!'
+                'The Threema Gateway Server will not be contacted!'), err=True)
+
+
+class _MockConnection:
+    def __init__(self, private_key, public_key, identity=None):
+        self.key = private_key
+        self._public_key = public_key
+        self.id = identity
+
+    @asyncio.coroutine
+    def get_public_key(self, _):
+        return self._public_key
 
 
 def aio_run(func):
@@ -19,23 +52,45 @@ def aio_run(func):
 
     def _wrapper(*args, **kwargs):
         loop = asyncio.get_event_loop()
-        task = loop.create_task(func(*args, **kwargs))
-        loop.run_until_complete(task)
-        return task.result()
+        result = loop.run_until_complete(func(*args, **kwargs))
+        loop.close()
+        return result
     return functools.update_wrapper(_wrapper, func)
 
 
 @click.group()
+@click.option('-v', '--verbosity', type=click.IntRange(0, len(_logging_levels)),
+              default=0, help="Logging verbosity.")
+@click.option('-c', '--colored', is_flag=True, help='Colourise logging output.')
 @click.option('-vf', '--verify-fingerprint', is_flag=True,
               help='Verify the certificate fingerprint.')
 @click.option('--fingerprint', type=str, help='A hex-encoded fingerprint.')
 @click.pass_context
-def cli(ctx, verify_fingerprint, fingerprint):
+def cli(ctx, verbosity, colored, verify_fingerprint, fingerprint):
     """
     Command Line Interface. Use --help for details.
     """
+    if verbosity > 0:
+        # Enable logging
+        util.enable_logging(level=_logging_levels[verbosity])
+
+        # Get handler class
+        if colored:
+            handler_class = logbook.more.ColorizedStderrHandler
+        else:
+            handler_class = logbook.StderrHandler
+
+        # Set up logging handler
+        handler = handler_class(level=_logging_levels[verbosity])
+        handler.push_application()
+        global _logging_handler
+        _logging_handler = handler
+
+    # Fingerprint
     if fingerprint is not None:
         fingerprint = binascii.unhexlify(fingerprint)
+
+    # Store on context
     ctx.obj = {
         'verify_fingerprint': verify_fingerprint,
         'fingerprint': fingerprint
@@ -68,8 +123,9 @@ def encrypt(private_key, public_key):
     text = click.get_text_stream('stdin').read()
 
     # Print nonce and message as hex
-    coroutine = e2e.TextMessage(text=text).encrypt(private_key, public_key)
-    nonce, message = yield from coroutine
+    connection = _MockConnection(private_key, public_key)
+    message = e2e.TextMessage(connection, text=text, to_id='')
+    nonce, message = yield from message.send(get_data_only=True)
     click.echo()
     click.echo(binascii.hexlify(nonce))
     click.echo(binascii.hexlify(message))
@@ -83,6 +139,7 @@ Prints the decrypted text message to standard output.
 @click.argument('private_key')
 @click.argument('public_key')
 @click.argument('nonce')
+@aio_run
 def decrypt(private_key, public_key, nonce):
     # Get key instances
     private_key = util.read_key_or_key_file(private_key, Key.Type.private)
@@ -95,12 +152,18 @@ def decrypt(private_key, public_key, nonce):
     message = click.get_text_stream('stdin').read()
     message = binascii.unhexlify(message)
 
-    # TODO: Ensure that this is a text message
+    # Unpack message
+    connection = _MockConnection(private_key, public_key)
+    parameters = {'from_id': '', 'message_id': '', 'date': ''}
+    message = yield from e2e.Message.receive(connection, parameters, nonce, message)
+
+    # Ensure that this is a text message
+    if message.type is not e2e.Message.Type.text_message:
+        raise TypeError('Cannot decrypt message type {} in CLI'.format(message.type))
 
     # Print text
-    text_message = e2e.decrypt(private_key.sk, public_key.pk, nonce, message)
     click.echo()
-    click.echo(text_message)
+    click.echo(message.text)
 
 
 @cli.command(short_help='Generate a new key pair.', help="""
@@ -178,7 +241,7 @@ def send_simple(ctx, **arguments):
         # Create message
         message = simple.TextMessage(
             connection=connection,
-            id=arguments['to'],
+            to_id=arguments['to'],
             text=text
         )
 
@@ -214,7 +277,7 @@ def send_e2e(ctx, **arguments):
 
     # Create connection
     connection = Connection(
-        id=arguments['from'],
+        identity=arguments['from'],
         secret=arguments['secret'],
         key=private_key,
         **ctx.obj
@@ -224,7 +287,7 @@ def send_e2e(ctx, **arguments):
         # Create message
         message = e2e.TextMessage(
             connection=connection,
-            id=arguments['to'],
+            to_id=arguments['to'],
             key=public_key,
             text=text
         )
@@ -260,7 +323,7 @@ def send_image(ctx, **arguments):
 
     # Create connection
     connection = Connection(
-        id=arguments['from'],
+        identity=arguments['from'],
         secret=arguments['secret'],
         key=private_key,
         **ctx.obj
@@ -270,7 +333,7 @@ def send_image(ctx, **arguments):
         # Create message
         message = e2e.ImageMessage(
             connection=connection,
-            id=arguments['to'],
+            to_id=arguments['to'],
             key=public_key,
             image_path=arguments['image_path']
         )
@@ -308,7 +371,7 @@ def send_file(ctx, **arguments):
 
     # Create connection
     connection = Connection(
-        id=arguments['from'],
+        identity=arguments['from'],
         secret=arguments['secret'],
         key=private_key,
         **ctx.obj
@@ -318,7 +381,7 @@ def send_file(ctx, **arguments):
         # Create message
         message = e2e.FileMessage(
             connection=connection,
-            id=arguments['to'],
+            to_id=arguments['to'],
             key=public_key,
             file_path=arguments['file_path'],
             thumbnail_path=arguments['thumbnail_path']
@@ -396,9 +459,16 @@ def credits(ctx, **arguments):
         click.echo((yield from connection.get_credits()))
 
 
-if __name__ == '__main__':
+def main():
     try:
         cli()
     except Exception as exc:
         click.echo('An error occurred:', err=True)
         click.echo(exc, err=True)
+        raise
+    finally:
+        if _logging_handler is not None:
+            _logging_handler.pop_application()
+
+if __name__ == '__main__':
+    main()

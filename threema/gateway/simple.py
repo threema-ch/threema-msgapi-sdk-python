@@ -18,12 +18,12 @@ class Message(metaclass=abc.ABCMeta):
 
     Attributes:
         - `connection`: An instance of a connection.
-        - `id`: Threema ID of the recipient.
+        - `to_id`: Threema ID of the recipient.
     """
     # noinspection PyShadowingBuiltins
-    def __init__(self, connection=None, id=None):
+    def __init__(self, connection=None, to_id=None):
         self.connection = connection
-        self.id = id
+        self.to_id = to_id
 
     @abc.abstractmethod
     def send(self):
@@ -57,7 +57,7 @@ class TextMessage(Message):
         Return the ID of the sent message.
         """
         recipient = {
-            'to': self.id,
+            'to': self.to_id,
             'phone': self.phone,
             'email': self.email
         }

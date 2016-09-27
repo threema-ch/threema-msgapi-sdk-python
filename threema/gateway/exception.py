@@ -3,6 +3,7 @@ Contains all exceptions used for the Threema gateway service.
 """
 __all__ = (
     'GatewayError',
+    'CallbackError',
     'GatewayServerError',
     'IDError',
     'IDServerError',
@@ -11,6 +12,7 @@ __all__ = (
     'ReceptionCapabilitiesError',
     'ReceptionCapabilitiesServerError',
     'CreditsServerError',
+    'DirectionError',
     'MessageError',
     'UnsupportedMimeTypeError',
     'MissingCapabilityError',
@@ -25,6 +27,23 @@ class GatewayError(Exception):
     General error of this module. All other exceptions are derived from
     this class.
     """
+
+
+class CallbackError(GatewayError):
+    """
+    Indicates that the callback does not accept the message. The
+    *status* code will be returned to the sender.
+
+    Arguments:
+        - `status`: An HTTP status code.
+        - `reason`: Reason of the *status*.
+    """
+    def __init__(self, status, reason):
+        self.status = status
+        self.reason = reason
+
+    def __str__(self):
+        return '[{]}] {]'.format(self.status, self.reason)
 
 
 class GatewayServerError(GatewayError):
@@ -127,10 +146,16 @@ class CreditsServerError(GatewayServerError):
     }
 
 
+class DirectionError(GatewayError):
+    """
+    Indicates that a message can not be processed for the specified
+    direction because required parameters are missing.
+    """
+
+
 class MessageError(GatewayError):
     """
-    Indicates that a message is invalid. The server has not been
-    contacted, yet.
+    Indicates that a message is invalid.
     """
 
 

@@ -71,3 +71,15 @@ You can see the implemented feature level by invoking the following command:
 ```
 $ threema-gateway version
 ```
+
+## Callback Server
+
+The callback server can be used to receive messages. The demo script
+``threema-callback-server`` prints out received message on the command line. Run the
+following command to see usage information.
+ 
+```
+$ threema-callback-server --help
+```
+
+The script resides [here](threema/gateway/bin/callback_server.py).
