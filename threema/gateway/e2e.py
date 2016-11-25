@@ -663,6 +663,7 @@ class DeliveryReceipt(Message):
         received = 0x01
         read = 0x02
         user_ack = 0x03
+        user_dec = 0x04
 
     def __init__(
             self, connection, receipt_type=None, message_ids=None,
