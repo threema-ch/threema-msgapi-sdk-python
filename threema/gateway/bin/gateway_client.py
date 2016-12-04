@@ -7,6 +7,7 @@ import functools
 import asyncio
 import os
 
+import aiohttp
 import click
 import logbook
 import logbook.more
@@ -462,13 +463,21 @@ def credits(ctx, **arguments):
 def main():
     try:
         cli()
+    except aiohttp.FingerprintMismatch:
+        error = 'Fingerprints did not match!'
     except Exception as exc:
+        error = str(exc)
+    else:
+        error = None
+
+    # Print error (if any)
+    if error is not None:
         click.echo('An error occurred:', err=True)
-        click.echo(exc, err=True)
-        raise
-    finally:
-        if _logging_handler is not None:
-            _logging_handler.pop_application()
+        click.echo(error, err=True)
+
+    # Remove logging handler
+    if _logging_handler is not None:
+        _logging_handler.pop_application()
 
 if __name__ == '__main__':
     main()
