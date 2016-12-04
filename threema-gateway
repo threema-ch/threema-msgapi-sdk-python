@@ -7,6 +7,7 @@ import binascii
 import functools
 import asyncio
 
+import aiohttp
 import click
 
 from threema.gateway import __version__ as _version
@@ -399,6 +400,14 @@ def credits(ctx, **arguments):
 if __name__ == '__main__':
     try:
         cli()
+    except aiohttp.FingerprintMismatch as exc:
+        error = 'Fingerprints did not match!'
     except Exception as exc:
+        error = str(exc)
+    else:
+        error = None
+
+    # Print error (if any)
+    if error is not None:
         click.echo('An error occurred:', err=True)
-        click.echo(exc, err=True)
+        click.echo(error, err=True)
