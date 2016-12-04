@@ -461,12 +461,14 @@ def credits(ctx, **arguments):
 
 
 def main():
+    exc = None
     try:
         cli()
     except aiohttp.FingerprintMismatch:
         error = 'Fingerprints did not match!'
     except Exception as exc:
         error = str(exc)
+        exc = exc
     else:
         error = None
 
@@ -474,6 +476,10 @@ def main():
     if error is not None:
         click.echo('An error occurred:', err=True)
         click.echo(error, err=True)
+
+        # Re-raise
+        if exc is not None:
+            raise exc
 
     # Remove logging handler
     if _logging_handler is not None:
