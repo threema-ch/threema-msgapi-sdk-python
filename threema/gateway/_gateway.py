@@ -1,5 +1,6 @@
-import enum
 import asyncio
+import binascii
+import enum
 
 import aiohttp
 import libnacl.public
@@ -51,7 +52,7 @@ class Connection:
           TLS certificate of the Threema Gateway Server by a
           fingerprint. (Recommended)
     """
-    fingerprint = b'm\x7f\xa3\x1d\x80\xdcV\xf9\xc1\xed\x17\x98*\xd6\x01\x7f'
+    fingerprint = binascii.unhexlify(b'b07be4814ba2b006be7910a0a695370f')
     urls = {
         'get_public_key': 'https://msgapi.threema.ch/pubkeys/{}',
         'get_id_by_phone': 'https://msgapi.threema.ch/lookup/phone/{}',
