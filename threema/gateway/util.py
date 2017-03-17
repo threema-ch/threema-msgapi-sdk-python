@@ -27,6 +27,8 @@ __all__ = (
     'ViewIOReader',
     'ViewIOWriter',
     'async_lru_cache',
+    'aio_run',
+    'aio_run_decorator',
 )
 
 _logger_group = logbook.LoggerGroup()
@@ -432,3 +434,92 @@ def async_lru_cache(maxsize=1024, expiration=15 * 60, typed=False):
         return functools.update_wrapper(wrapper, func)
 
     return decorating_function
+
+
+def aio_run(coroutine, loop=None, close_after_complete=False):
+    """
+    Decorator to run an asyncio coroutine as a normal blocking
+    function.
+
+    Arguments:
+        - `coroutine`: The asyncio coroutine or task to be executed.
+        - `loop`: An optional :class:`asyncio.AbstractEventLoop`
+          subclass instance.
+        - `close_after_complete`: Close `loop` after the coroutine
+          returned. Defaults to ``False``.
+
+    Returns the result of the asyncio coroutine.
+
+    Example:
+
+    .. code-block::
+        @asyncio.coroutine
+        def coroutine(timeout):
+            yield from asyncio.sleep(timeout)
+            return True
+
+        # Call coroutine in a blocking manner
+        result = aio_run(coroutine(1.0))
+        print(result)
+    """
+
+    # Create a new event loop (if required)
+    if loop is None:
+        loop_ = asyncio.get_event_loop()
+
+        # Closed? Set a new one
+        if loop_.is_closed():
+            loop_ = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop_)
+    else:
+        loop_ = loop
+
+    # Run the coroutine and get the result
+    result = loop_.run_until_complete(coroutine)
+
+    # Close loop (if requested)
+    if close_after_complete:
+        loop_.close()
+
+    # Return the result
+    return result
+
+
+def aio_run_decorator(loop=None, close_after_complete=False):
+    """
+    Decorator to run an asyncio coroutine as a normal blocking
+    function.
+
+    Arguments:
+        - `loop`: An optional :class:`asyncio.AbstractEventLoop`
+          subclass instance.
+        - `close_after_complete`: Close `loop` after the coroutine
+          returned. Defaults to ``False``.
+
+    Returns a decorator to wrap around an asyncio coroutine.
+
+    Example:
+
+    .. code-block::
+        @asyncio.coroutine
+        def coroutine(timeout):
+            yield from asyncio.sleep(timeout)
+            return True
+
+        @aio_run_decorator()
+        def helper(*args, **kwargs):
+            return coroutine(*args, **kwargs)
+
+        # Call coroutine in a blocking manner
+        result = helper(timeout=1.0)
+        print(result)
+    """
+    def _decorator(func):
+        # Make it a coroutine if it isn't one already
+        if not asyncio.iscoroutinefunction(func):
+            func = asyncio.coroutine(func)
+
+        def _wrapper(*args, **kwargs):
+            return aio_run(func(*args, **kwargs))
+        return functools.update_wrapper(_wrapper, func)
+    return _decorator
