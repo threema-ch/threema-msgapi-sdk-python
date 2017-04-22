@@ -1,39 +1,69 @@
 import ast
 import os
+import sys
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
 
 def get_version():
-    path = os.path.join(os.path.dirname(__file__), 'threema/gateway/__init__.py')
+    path = os.path.join(os.path.dirname(__file__), 'threema', 'gateway', '__init__.py')
     with open(path) as file:
         for line in file:
             if line.startswith('__version__'):
                 _, value = line.split('=', maxsplit=1)
                 return ast.literal_eval(value.strip())
+        else:
+            raise Exception('Version not found in {}'.format(path))
+
+
+def read(file):
+    return open(os.path.join(os.path.dirname(__file__), file)).read().strip()
+
 
 # Allow setup.py to be run from any path
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
+
 # Import long description
-long_description = open(os.path.join(os.path.dirname(__file__), 'README.md')).read()
+long_description = read('README.md')
+
+# Check python version
+py_version = sys.version_info[:2]
+if py_version < (3, 4):
+    raise Exception("threema.gateway requires Python >= 3.4")
+
+# Test requirements
+# Note: These are just tools that aren't required, so a version range
+#       is not necessary here.
+tests_require = [
+    'pytest>=2.8.4',
+    'pytest-asyncio>=0.2.0',
+    'pytest-cov>=2.4.0',
+    'flake8>=3.3.0',
+    'isort>=4.2.5',
+    'collective.checkdocs>=0.2',
+    'Pygments>=2.2.0',  # required by checkdocs
+]
 
 setup(
     name='threema.gateway',
     version=get_version(),
-    packages=find_packages(),
+    packages=['threema', 'threema.gateway'],
     namespace_packages=['threema'],
     install_requires=[
-        'py_lru_cache>=0.1.4',
-        'logbook>=0.12.5',
-        'libnacl>=1.4.3',
-        'click>=5.1',
-        'aiohttp>=0.19.0',
-        'asyncio>= 3.4.3',
+        'py_lru_cache>=0.1.4,<0.2',
+        'logbook>=1,<2',
+        'libnacl>=1.5,<2',
+        'click>=6.7,<7',  # doesn't seem to follow semantic versioning
+        'aiohttp>=1.3.5,<2',
     ],
-    tests_require=[
-        'pytest>=2.8.4',
-        'pytest-asyncio>=0.2.0',
-    ],
+    tests_require=tests_require,
+    extras_require={
+        ':python_version<="3.4"': [
+            'asyncio==3.4.3',
+        ],
+        'dev': tests_require,
+        'uvloop': ['uvloop>=0.8.0,<2'],
+    },
     include_package_data=True,
     entry_points={
         'console_scripts': [
