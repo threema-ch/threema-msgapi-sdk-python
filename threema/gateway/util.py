@@ -560,38 +560,45 @@ def aio_run_proxy_decorator(cls):
             message = "Class {} is missing 'async_functions' iterable"
             raise ValueError(message.format(base_class.__name__))
 
-    def _decorator(*args, **kwargs):
-        # Create instance
-        instance = cls(*args, **kwargs)
+    # Sanity-check
+    if not issubclass(cls, AioRunMixin):
+        raise TypeError("Class {} did not inherit 'AioRunMixin'".format(
+            cls.__name__))
 
-        # Sanity-check
-        if not isinstance(instance, AioRunMixin):
-            raise TypeError("Class {} did not inherit 'AioRunMixin'".format(cls.__name__))
+    class _AioRunProxyDecoratorFactory(wrapt.ObjectProxy):
+        def __call__(self, *args, **kwargs):
+            # Create instance
+            instance = cls(*args, **kwargs)
 
-        # Wrap with proxy (if required)
-        if instance.blocking:
-            class _AioRunProxy(wrapt.ObjectProxy):
-                @property
-                def unwrap(self):
-                    """
-                    Get the wrapped instance.
-                    """
-                    return self.__wrapped__
+            # Sanity-check
+            if not isinstance(instance, AioRunMixin):
+                raise TypeError("Class {} did not inherit 'AioRunMixin'".format(
+                    cls.__name__))
 
-            # Wrap all async functions with `aio_run`
-            for name in async_functions:
-                def _method(instance_, name_, *args_, **kwargs_):
-                    method = aio_run_decorator()(getattr(instance_, name_))
-                    return method(*args_, **kwargs_)
+            # Wrap with proxy (if required)
+            if instance.blocking:
+                class _AioRunProxy(wrapt.ObjectProxy):
+                    @property
+                    def unwrap(self):
+                        """
+                        Get the wrapped instance.
+                        """
+                        return self.__wrapped__
 
-                _method = functools.partial(_method, instance, name)
-                setattr(_AioRunProxy, name, _method)
+                # Wrap all async functions with `aio_run`
+                for name in async_functions:
+                    def _method(instance_, name_, *args_, **kwargs_):
+                        method = aio_run_decorator()(getattr(instance_, name_))
+                        return method(*args_, **kwargs_)
 
-            return _AioRunProxy(instance)
-        else:
-            return instance
+                    _method = functools.partial(_method, instance, name)
+                    setattr(_AioRunProxy, name, _method)
 
-    return _decorator
+                return _AioRunProxy(instance)
+            else:
+                return instance
+
+    return _AioRunProxyDecoratorFactory(cls)
 
 
 class AioRunMixin:
