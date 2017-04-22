@@ -28,28 +28,28 @@ class TestCLI:
             yield from cli('encrypt', 'meow', 'meow', input='meow')
         assert 'Invalid key format' in exc_info.value.output
         with pytest.raises(subprocess.CalledProcessError) as exc_info:
-            yield from cli('encrypt', pytest.msgapi.public, pytest.msgapi.private,
-                            input='meow')
+            yield from cli(
+                'encrypt', pytest.msgapi.public, pytest.msgapi.private, input='meow')
         assert 'Invalid key type' in exc_info.value.output
 
     @pytest.mark.asyncio
     def test_encrypt_decrypt(self, cli):
         input = '私はガラスを食べられます。それは私を傷つけません。'
-        output = yield from cli('encrypt', pytest.msgapi.private, pytest.msgapi.public,
-                                input=input)
+        output = yield from cli(
+            'encrypt', pytest.msgapi.private, pytest.msgapi.public, input=input)
         nonce, data = output.splitlines()
-        output = yield from cli('decrypt', pytest.msgapi.private, pytest.msgapi.public,
-                                nonce, input=data)
+        output = yield from cli(
+            'decrypt', pytest.msgapi.private, pytest.msgapi.public, nonce, input=data)
         assert input in output
 
     @pytest.mark.asyncio
     def test_encrypt_decrypt_by_file(self, cli, private_key_file, public_key_file):
         input = '私はガラスを食べられます。それは私を傷つけません。'
-        output = yield from cli('encrypt', private_key_file, public_key_file,
-                                input=input)
+        output = yield from cli(
+            'encrypt', private_key_file, public_key_file, input=input)
         nonce, data = output.splitlines()
-        output = yield from cli('decrypt', private_key_file, public_key_file, nonce,
-                                input=data)
+        output = yield from cli(
+            'decrypt', private_key_file, public_key_file, nonce, input=data)
         assert input in output
 
     @pytest.mark.asyncio
@@ -154,35 +154,37 @@ class TestCLI:
 
     @pytest.mark.asyncio
     def test_lookup_id_by_email(self, cli):
-        output = yield from cli('lookup', pytest.msgapi.id, pytest.msgapi.secret,
-                                '-e', 'echoecho@example.com')
+        output = yield from cli(
+            'lookup', pytest.msgapi.id, pytest.msgapi.secret,
+            '-e', 'echoecho@example.com')
         assert 'ECHOECHO' in output
-        output = yield from cli('lookup', pytest.msgapi.id, pytest.msgapi.secret,
-                                '--email', 'echoecho@example.com')
+        output = yield from cli(
+            'lookup', pytest.msgapi.id, pytest.msgapi.secret,
+            '--email', 'echoecho@example.com')
         assert 'ECHOECHO' in output
 
     @pytest.mark.asyncio
     def test_lookup_id_by_phone(self, cli):
-        output = yield from cli('lookup', pytest.msgapi.id, pytest.msgapi.secret,
-                                '-p', '44123456789')
+        output = yield from cli(
+            'lookup', pytest.msgapi.id, pytest.msgapi.secret, '-p', '44123456789')
         assert 'ECHOECHO' in output
-        output = yield from cli('lookup', pytest.msgapi.id, pytest.msgapi.secret,
-                                '--phone', '44123456789')
+        output = yield from cli(
+            'lookup', pytest.msgapi.id, pytest.msgapi.secret, '--phone', '44123456789')
         assert 'ECHOECHO' in output
 
     @pytest.mark.asyncio
     def test_lookup_pk_by_id(self, cli, server):
-        output = yield from cli('lookup', pytest.msgapi.id, pytest.msgapi.secret,
-                                '-i', 'ECHOECHO')
+        output = yield from cli(
+            'lookup', pytest.msgapi.id, pytest.msgapi.secret, '-i', 'ECHOECHO')
         assert server.echoecho_encoded_key in output
-        output = yield from cli('lookup', pytest.msgapi.id, pytest.msgapi.secret,
-                                '--id', 'ECHOECHO')
+        output = yield from cli(
+            'lookup', pytest.msgapi.id, pytest.msgapi.secret, '--id', 'ECHOECHO')
         assert server.echoecho_encoded_key in output
 
     @pytest.mark.asyncio
     def test_capabilities(self, cli):
-        output = yield from cli('capabilities', pytest.msgapi.id, pytest.msgapi.secret,
-                                'ECHOECHO')
+        output = yield from cli(
+            'capabilities', pytest.msgapi.id, pytest.msgapi.secret, 'ECHOECHO')
         capabilities = {
             ReceptionCapability.text,
             ReceptionCapability.image,
@@ -195,15 +197,15 @@ class TestCLI:
     def test_credits(self, cli):
         output = yield from cli('credits', pytest.msgapi.id, pytest.msgapi.secret)
         assert '100' in output
-        output = yield from cli('credits', pytest.msgapi.nocredit_id,
-                                pytest.msgapi.secret)
+        output = yield from cli(
+            'credits', pytest.msgapi.nocredit_id, pytest.msgapi.secret)
         assert '0' in output
 
     @pytest.mark.asyncio
     def test_invalid_id(self, cli):
         with pytest.raises(subprocess.CalledProcessError) as exc_info:
-            output = yield from cli('credits', pytest.msgapi.noexist_id,
-                                    pytest.msgapi.secret)
+            yield from cli(
+                'credits', pytest.msgapi.noexist_id, pytest.msgapi.secret)
         assert 'API identity or secret incorrect' in exc_info.value.output
 
     @pytest.mark.asyncio

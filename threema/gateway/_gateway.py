@@ -6,7 +6,17 @@ import aiohttp
 import libnacl.encode
 import libnacl.public
 
-from .exception import *
+from .exception import (
+    BlobServerError,
+    CreditsServerError,
+    GatewayKeyError,
+    IDError,
+    IDServerError,
+    KeyServerError,
+    MessageServerError,
+    ReceptionCapabilitiesError,
+    ReceptionCapabilitiesServerError,
+)
 from .key import Key
 from .util import (
     async_lru_cache,

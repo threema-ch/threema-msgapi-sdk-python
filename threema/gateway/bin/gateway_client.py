@@ -482,5 +482,6 @@ def main():
     if _logging_handler is not None:
         _logging_handler.pop_application()
 
+
 if __name__ == '__main__':
     main()

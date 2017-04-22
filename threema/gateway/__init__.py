@@ -23,10 +23,12 @@ The mode that you can use depends on the way your account was set up.
 """
 import itertools
 
-from ._gateway import *
-from .exception import *
 # noinspection PyUnresolvedReferences
-from . import bin, simple, e2e, key, util
+from ._gateway import *  # noqa
+# noinspection PyUnresolvedReferences
+from .exception import *  # noqa
+# noinspection PyUnresolvedReferences
+from . import bin, simple, e2e, key, util  # noqa
 
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
@@ -35,7 +37,7 @@ feature_level = 3
 
 __all__ = tuple(itertools.chain(
     ('feature_level',),
-    _gateway.__all__,
-    exception.__all__,
+    _gateway.__all__,  # noqa
+    exception.__all__,  # noqa
     ('bin', 'simple', 'e2e', 'key', 'util')
 ))

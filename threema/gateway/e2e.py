@@ -25,7 +25,13 @@ from . import (
     ReceptionCapability,
     util,
 )
-from .exception import *
+from .exception import (
+    CallbackError,
+    DirectionError,
+    MessageError,
+    MissingCapabilityError,
+    UnsupportedMimeTypeError,
+)
 from .key import Key
 
 __all__ = (

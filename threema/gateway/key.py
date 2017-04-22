@@ -9,7 +9,7 @@ import libnacl.encode
 import libnacl.public
 import libnacl.secret
 
-from .exception import *
+from .exception import GatewayKeyError
 
 __all__ = (
     'HMAC',

@@ -12,7 +12,14 @@ from threema.gateway import (
     e2e,
     simple,
 )
-from threema.gateway.exception import *
+from threema.gateway.exception import (
+    BlobServerError,
+    CreditsServerError,
+    IDServerError,
+    KeyServerError,
+    MessageServerError,
+    ReceptionCapabilitiesServerError,
+)
 
 
 @asyncio.coroutine
@@ -240,8 +247,8 @@ class TestLookupIDByEmailHash:
         cache_info = connection.get_id.cache_info()
         assert cache_info.misses == 1
         assert cache_info.hits == 999
-        
-        
+
+
 class TestReceptionCapabilities:
     @pytest.mark.asyncio
     def test_invalid_identity(self, invalid_connection):

@@ -1,5 +1,3 @@
-import asyncio
-
 import pytest
 
 from threema.gateway import e2e
