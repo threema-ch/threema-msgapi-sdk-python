@@ -20,6 +20,7 @@ from .exception import (
 from .key import Key
 from .util import (
     aio_run_decorator,
+    aio_run_proxy_decorator,
     async_lru_cache,
     raise_server_error,
     AioRunMixin,
@@ -43,6 +44,7 @@ class ReceptionCapability(enum.Enum):
     file = 'file'
 
 
+@aio_run_proxy_decorator
 class Connection(AioRunMixin):
     """
     Container for the sender's Threema ID and the Threema Gateway
@@ -67,6 +69,16 @@ class Connection(AioRunMixin):
           TLS certificate of the Threema Gateway Server by a
           fingerprint. (Recommended)
     """
+    async_functions = {
+        'get_public_key',
+        'get_id',
+        'get_reception_capabilities',
+        'get_credits',
+        'send_simple',
+        'send_e2e',
+        'upload',
+        'download',
+    }
     fingerprint = binascii.unhexlify(b'b07be4814ba2b006be7910a0a695370f')
     urls = {
         'get_public_key': 'https://msgapi.threema.ch/pubkeys/{}',
@@ -81,16 +93,6 @@ class Connection(AioRunMixin):
         'upload_blob': 'https://msgapi.threema.ch/upload_blob',
         'download_blob': 'https://msgapi.threema.ch/blobs/{}'
     }
-    async_functions = [
-        'get_public_key',
-        'get_id',
-        'get_reception_capabilities',
-        'get_credits',
-        'send_simple',
-        'send_e2e',
-        'upload',
-        'download',
-    ]
 
     def __init__(
             self, identity, secret,

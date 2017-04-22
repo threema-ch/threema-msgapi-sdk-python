@@ -34,6 +34,13 @@ from .exception import (
     UnsupportedMimeTypeError,
 )
 from .key import Key
+from .util import (
+    aio_run_proxy_decorator,
+    randint,
+    AioRunMixin,
+    ViewIOReader,
+    ViewIOWriter,
+)
 
 __all__ = (
     'BLOB_ID_LENGTH',
@@ -284,7 +291,7 @@ class AbstractCallback(metaclass=abc.ABCMeta):
 
 
 # TODO: Update docstring (arguments)
-class Message(metaclass=abc.ABCMeta):
+class Message(AioRunMixin, metaclass=abc.ABCMeta):
     """
     A message class all end-to-end mode messages are derived from.
 
@@ -298,6 +305,17 @@ class Message(metaclass=abc.ABCMeta):
         - `key_file`: A file where the private key is stored in. Can
           be used instead of passing the key directly.
     """
+    async_functions = {
+        'key',
+        'send',
+        'receive',
+        'pack',
+        'unpack',
+        'check_capabilities',
+        'get_encrypt_key_pair',
+        'get_decrypt_key_pair',
+        'encrypt',
+    }
     nonce = {
         'file': (b'\x00' * 23) + b'\x01',
         'thumbnail': (b'\x00' * 23) + b'\x02'
@@ -347,6 +365,9 @@ class Message(metaclass=abc.ABCMeta):
             key=None, key_file=None,
             to_id=None, from_data=None
     ):
+        super().__init__(blocking=connection.blocking)
+        connection = connection.unwrap
+
         # Get direction
         if from_data is not None:
             direction = self.Direction.incoming
@@ -441,7 +462,7 @@ class Message(metaclass=abc.ABCMeta):
         """
         if self._direction != self.Direction.outgoing:
             raise DirectionError('Parameters are missing to send the message')
-        writer = util.ViewIOWriter()
+        writer = ViewIOWriter()
 
         # Pack type
         try:
@@ -453,7 +474,7 @@ class Message(metaclass=abc.ABCMeta):
         yield from self.pack(writer)
 
         # Generate 0 < padding < 256
-        padding_length = util.randint(1, 255)
+        padding_length = randint(1, 255)
         # Add padding to data
         writer.writeexactly(bytes([padding_length] * padding_length))
 
@@ -512,7 +533,7 @@ class Message(metaclass=abc.ABCMeta):
             raise MessageError('Cannot handle type: {}'.format(type_))
 
         # Remove type and padding from data
-        reader = util.ViewIOReader(data[1:-padding_length])
+        reader = ViewIOReader(data[1:-padding_length])
 
         # Unpack message
         return (yield from class_.unpack(connection, parameters, key_pair, reader))
@@ -655,6 +676,7 @@ class Message(metaclass=abc.ABCMeta):
 
 
 # TODO: Update docstring (arguments)
+@aio_run_proxy_decorator
 class DeliveryReceipt(Message):
     """
     A delivery receipt that can be received in end-to-end mode.
@@ -666,6 +688,11 @@ class DeliveryReceipt(Message):
     Arguments:
         - `payload`: The remaining byte sequence of the message.
     """
+    async_functions = {
+        'pack',
+        'unpack',
+    }
+
     # TODO: Re-enable unique decorator and remove `user_ack` with next major version
     # @enum.unique
     class ReceiptType(enum.IntEnum):
@@ -741,6 +768,7 @@ class DeliveryReceipt(Message):
 
 
 # TODO: Update docstring (arguments)
+@aio_run_proxy_decorator
 class TextMessage(Message):
     """
     A text message.
@@ -758,6 +786,11 @@ class TextMessage(Message):
         - `payload`: The remaining byte sequence of a decrypted
           message.
     """
+    async_functions = {
+        'pack',
+        'unpack',
+    }
+
     def __init__(self, connection, text=None, from_data=None, **kwargs):
         super().__init__(connection, Message.Type.text_message,
                          from_data=from_data, **kwargs)
@@ -801,6 +834,7 @@ class TextMessage(Message):
 
 
 # TODO: Update docstring (arguments)
+@aio_run_proxy_decorator
 class ImageMessage(Message):
     """
     An image message.
@@ -818,16 +852,18 @@ class ImageMessage(Message):
         - `payload`: The remaining byte sequence of a decrypted
           message.
     """
+    async_functions = {
+        'pack',
+        'unpack',
+    }
     allowed_mime_types = {
         'image/jpg',
         'image/jpeg',
         'image/png'
     }
-
     required_capabilities = {
         ReceptionCapability.image
     }
-
     _formatter = '<{}sI{}s'.format(BLOB_ID_LENGTH, libnacl.crypto_box_NONCEBYTES)
 
     def __init__(
@@ -935,6 +971,7 @@ class ImageMessage(Message):
 
 
 # TODO: Update docstring (arguments)
+@aio_run_proxy_decorator
 class FileMessage(Message):
     """
     A file message including a thumbnail.
@@ -953,6 +990,10 @@ class FileMessage(Message):
         - `payload`: The remaining byte sequence of a decrypted
           message.
     """
+    async_functions = {
+        'pack',
+        'unpack',
+    }
     required_capabilities = {
         ReceptionCapability.file
     }
