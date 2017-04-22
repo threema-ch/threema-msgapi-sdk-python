@@ -22,6 +22,7 @@ from .util import (
     aio_run_decorator,
     async_lru_cache,
     raise_server_error,
+    AioRunMixin,
 )
 
 __all__ = (
@@ -42,7 +43,7 @@ class ReceptionCapability(enum.Enum):
     file = 'file'
 
 
-class Connection:
+class Connection(AioRunMixin):
     """
     Container for the sender's Threema ID and the Threema Gateway
     secret. Can be applied to multiple messages for both simple and
@@ -80,7 +81,7 @@ class Connection:
         'upload_blob': 'https://msgapi.threema.ch/upload_blob',
         'download_blob': 'https://msgapi.threema.ch/blobs/{}'
     }
-    _async_functions = [
+    async_functions = [
         'get_public_key',
         'get_id',
         'get_reception_capabilities',
@@ -96,6 +97,7 @@ class Connection:
             key=None, key_file=None,
             fingerprint=None, verify_fingerprint=False, blocking=False
     ):
+        super().__init__(blocking=blocking)
         if fingerprint is None and verify_fingerprint:
             fingerprint = self.fingerprint
         connector = aiohttp.TCPConnector(fingerprint=fingerprint)
@@ -106,11 +108,6 @@ class Connection:
         self.secret = secret
         self.key = key
         self.key_file = key_file
-
-        # Blocking? Wrap all public coroutines with `aio_run`
-        if blocking:
-            for method in self._async_functions:
-                setattr(self, method, aio_run_decorator()(getattr(self, method)))
 
     def __enter__(self):
         return self

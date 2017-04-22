@@ -29,6 +29,7 @@ __all__ = (
     'async_lru_cache',
     'aio_run',
     'aio_run_decorator',
+    'AioRunMixin',
 )
 
 _logger_group = logbook.LoggerGroup()
@@ -523,3 +524,23 @@ def aio_run_decorator(loop=None, close_after_complete=False):
             return aio_run(func(*args, **kwargs))
         return functools.update_wrapper(_wrapper, func)
     return _decorator
+
+
+class AioRunMixin:
+    async_functions = None
+
+    def __new__(cls, *args, **kwargs):
+        # Ensure the class has added a class-level iterable of async functions
+        try:
+            iter(cls.async_functions)
+        except TypeError:
+            message = "Cannot instantiate class {} with missing 'async_functions' iterable"
+            raise ValueError(message.format(cls.__name__))
+
+        return super().__new__(cls)
+
+    def __init__(self, blocking=False):
+        # Blocking? Wrap all public coroutines with `aio_run`
+        if blocking:
+            for method in self.async_functions:
+                setattr(self, method, aio_run_decorator()(getattr(self, method)))
