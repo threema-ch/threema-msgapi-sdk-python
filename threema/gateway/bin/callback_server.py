@@ -1,17 +1,20 @@
 """
 The command line interface for the Threema Gateway Callback Server.
 """
-import functools
 import asyncio
+import functools
 
 import click
 import logbook
 import logbook.more
 
 from threema.gateway import __version__ as _version
-from threema.gateway import util, Connection
-from threema.gateway.key import Key
+from threema.gateway import (
+    Connection,
+    util,
+)
 from threema.gateway.e2e import AbstractCallback
+from threema.gateway.key import Key
 
 _logging_handler = None
 _logging_levels = {

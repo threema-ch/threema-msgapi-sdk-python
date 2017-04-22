@@ -1,28 +1,24 @@
-import socket
 import asyncio
 import asyncio.subprocess
-import copy
-import os
-import sys
 import binascii
-import subprocess
-import time
+import copy
 import hashlib
 import hmac
-
-import pytest
-import aiohttp
-
-import threema.gateway
-
+import os
+import socket
+import subprocess
+import sys
+import time
 from contextlib import closing
 
+import aiohttp
+import pytest
 from aiohttp import web
 from aiohttp.web_urldispatcher import UrlDispatcher
 
+import threema.gateway
 from threema.gateway import e2e
 from threema.gateway.key import Key
-
 
 _res_path = os.path.normpath(os.path.join(
     os.path.abspath(__file__), os.pardir, 'res'))

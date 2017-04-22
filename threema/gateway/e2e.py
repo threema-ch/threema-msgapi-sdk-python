@@ -2,27 +2,29 @@
 Provides classes and functions for the end-to-end encryption mode.
 """
 import abc
-import enum
-import os
-import binascii
-import struct
-import mimetypes
-import json
 import asyncio
-import ssl
-import hmac
-import hashlib
+import binascii
 import datetime
+import enum
+import hashlib
+import hmac
+import json
+import mimetypes
+import os
+import ssl
+import struct
 
 import libnacl
+import libnacl.encode
 import libnacl.public
 import libnacl.secret
-import libnacl.encode
-
 from aiohttp import web
 from aiohttp.web_urldispatcher import UrlDispatcher
 
-from . import ReceptionCapability, util
+from . import (
+    ReceptionCapability,
+    util,
+)
 from .exception import *
 from .key import Key
 

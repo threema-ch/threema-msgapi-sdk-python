@@ -1,10 +1,10 @@
 """
 The command line interface for the Threema gateway service.
 """
-import re
-import binascii
 import asyncio
+import binascii
 import os
+import re
 
 import aiohttp
 import click
@@ -12,8 +12,17 @@ import logbook
 import logbook.more
 
 from threema.gateway import __version__ as _version
-from threema.gateway import feature_level, simple, e2e, util, Connection
-from threema.gateway.key import HMAC, Key
+from threema.gateway import (
+    Connection,
+    e2e,
+    feature_level,
+    simple,
+    util,
+)
+from threema.gateway.key import (
+    HMAC,
+    Key,
+)
 
 _logging_handler = None
 _logging_levels = {

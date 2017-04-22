@@ -3,7 +3,10 @@ import subprocess
 import pytest
 
 from threema.gateway import __version__ as _version
-from threema.gateway import feature_level, ReceptionCapability
+from threema.gateway import (
+    ReceptionCapability,
+    feature_level,
+)
 from threema.gateway.key import Key
 
 

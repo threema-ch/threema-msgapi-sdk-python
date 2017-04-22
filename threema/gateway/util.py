@@ -2,11 +2,11 @@
 Utility functions.
 """
 import asyncio
-import io
-import os
 import collections
 import functools
+import io
 import logging
+import os
 
 import libnacl
 import logbook

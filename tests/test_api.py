@@ -7,8 +7,12 @@ import asyncio
 
 import pytest
 
+from threema.gateway import (
+    ReceptionCapability,
+    e2e,
+    simple,
+)
 from threema.gateway.exception import *
-from threema.gateway import simple, e2e, ReceptionCapability
 
 
 @asyncio.coroutine

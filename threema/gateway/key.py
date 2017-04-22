@@ -5,9 +5,9 @@ import enum
 import hashlib
 import hmac
 
+import libnacl.encode
 import libnacl.public
 import libnacl.secret
-import libnacl.encode
 
 from .exception import *
 

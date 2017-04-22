@@ -3,12 +3,15 @@ import binascii
 import enum
 
 import aiohttp
-import libnacl.public
 import libnacl.encode
+import libnacl.public
 
 from .exception import *
 from .key import Key
-from .util import raise_server_error, async_lru_cache
+from .util import (
+    async_lru_cache,
+    raise_server_error,
+)
 
 __all__ = (
     'ReceptionCapability',

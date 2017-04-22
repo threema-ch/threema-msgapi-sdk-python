@@ -3,7 +3,10 @@ import asyncio
 import logbook
 import logbook.more
 
-from threema.gateway import util, Connection
+from threema.gateway import (
+    Connection,
+    util,
+)
 from threema.gateway.e2e import AbstractCallback
 
 
