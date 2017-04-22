@@ -39,12 +39,12 @@ install:
 
 # Run flake8, isort, check docs & tests
 script:
-#  - >
-#    if [[ "$TRAVIS_PYTHON_VERSION" != "pypy3" ]]; then
-#      flake8 . || travis_terminate 1;
-#      isort -rc -c . || (isort -rc -df . && return 1) || travis_terminate 1;
-#    fi
-#  - python setup.py checkdocs
+  - >
+    if [[ "$TRAVIS_PYTHON_VERSION" != "pypy3" ]]; then
+      flake8 . || travis_terminate 1;
+      isort -rc -c . || (isort -rc -df . && return 1) || travis_terminate 1;
+    fi
+  - python setup.py checkdocs
   - py.test --cov-config .coveragerc --cov=threema.gateway --loop=$EVENT_LOOP
 
 # After success
