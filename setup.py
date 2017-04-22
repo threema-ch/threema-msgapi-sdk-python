@@ -61,6 +61,9 @@ setup(
         ':python_version<="3.4"': [
             'asyncio==3.4.3',
         ],
+        ':python_version<="3.5"': [
+            'typing>=3.6,<3.7',
+        ],
         'dev': tests_require,
         'uvloop': ['uvloop>=0.8.0,<2'],
     },
