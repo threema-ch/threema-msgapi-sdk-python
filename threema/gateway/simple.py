@@ -5,7 +5,10 @@ import abc
 import asyncio
 
 from .exception import MessageError
-from .util import aio_run_proxy_decorator, AioRunMixin
+from .util import (
+    AioRunMixin,
+    aio_run_proxy_decorator,
+)
 
 __all__ = (
     'Message',

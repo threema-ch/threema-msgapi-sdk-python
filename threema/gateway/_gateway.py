@@ -19,11 +19,10 @@ from .exception import (
 )
 from .key import Key
 from .util import (
-    aio_run_decorator,
+    AioRunMixin,
     aio_run_proxy_decorator,
     async_lru_cache,
     raise_server_error,
-    AioRunMixin,
 )
 
 __all__ = (

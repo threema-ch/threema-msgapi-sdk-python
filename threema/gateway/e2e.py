@@ -22,10 +22,7 @@ import libnacl.secret
 from aiohttp import web
 from aiohttp.web_urldispatcher import UrlDispatcher
 
-from . import (
-    ReceptionCapability,
-    util,
-)
+from . import ReceptionCapability
 from .exception import (
     CallbackError,
     DirectionError,
@@ -35,11 +32,11 @@ from .exception import (
 )
 from .key import Key
 from .util import (
-    aio_run_proxy_decorator,
-    randint,
     AioRunMixin,
     ViewIOReader,
     ViewIOWriter,
+    aio_run_proxy_decorator,
+    randint,
 )
 
 __all__ = (

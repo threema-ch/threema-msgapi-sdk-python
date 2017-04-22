@@ -5,8 +5,16 @@ service with your end-to-end account.
 import logbook
 import logbook.more
 
-from threema.gateway import util, Connection, GatewayError
-from threema.gateway.e2e import TextMessage, ImageMessage, FileMessage
+from threema.gateway import (
+    Connection,
+    GatewayError,
+    util,
+)
+from threema.gateway.e2e import (
+    FileMessage,
+    ImageMessage,
+    TextMessage,
+)
 
 
 def send(connection):

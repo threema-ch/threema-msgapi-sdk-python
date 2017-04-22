@@ -6,7 +6,6 @@ import binascii
 import os
 import re
 
-
 import aiohttp
 import click
 import logbook

@@ -5,7 +5,11 @@ functionality of the gateway service.
 import logbook
 import logbook.more
 
-from threema.gateway import util, Connection, GatewayError
+from threema.gateway import (
+    Connection,
+    GatewayError,
+    util,
+)
 from threema.gateway.key import Key
 
 
