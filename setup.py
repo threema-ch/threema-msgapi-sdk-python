@@ -23,12 +23,12 @@ setup(
     packages=find_packages(),
     namespace_packages=['threema'],
     install_requires=[
-        'py_lru_cache>=0.1.4',
-        'logbook>=0.12.5',
-        'libnacl>=1.4.3',
-        'click>=5.1',
-        'aiohttp>=0.19.0',
-        'asyncio>= 3.4.3',
+        'py_lru_cache>=0.1.4,<0.2',
+        'logbook>=1,<2',
+        'libnacl>=1.4,<1.5',
+        'click>=5.1,<6',
+        'aiohttp>=1,<2',
+        'asyncio>=3.4.3,<3.5',
     ],
     tests_require=[
         'pytest>=2.8.4',
