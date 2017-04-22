@@ -27,8 +27,6 @@ import itertools
 from ._gateway import *  # noqa
 # noinspection PyUnresolvedReferences
 from .exception import *  # noqa
-# noinspection PyUnresolvedReferences
-from . import bin, simple, e2e, key, util  # noqa
 
 __author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
@@ -37,7 +35,7 @@ feature_level = 3
 
 __all__ = tuple(itertools.chain(
     ('feature_level',),
+    ('bin', 'simple', 'e2e', 'key', 'util'),
     _gateway.__all__,  # noqa
     exception.__all__,  # noqa
-    ('bin', 'simple', 'e2e', 'key', 'util')
 ))
