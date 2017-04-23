@@ -13,6 +13,7 @@ import mimetypes
 import os
 import ssl
 import struct
+from typing import Tuple
 
 import libnacl
 import libnacl.encode
@@ -48,14 +49,14 @@ BLOB_ID_LENGTH = 16
 
 
 # TODO: Raises?
-def _pk_encrypt(key_pair, data, nonce=None):
+def _pk_encrypt(key_pair: Tuple[Key, Key], data: bytes, nonce: bytes = None):
     """
     Encrypt data by using public-key encryption.
 
     Arguments:
         - `key_pair`: A tuple containing our private key and the public
           key of the recipient.
-        - `data`: Raw data (bytes).
+        - `data`: Raw data.
         - `nonce`: A predefined nonce.
 
     Return a tuple of bytes containing the nonce and the encrypted
@@ -68,7 +69,7 @@ def _pk_encrypt(key_pair, data, nonce=None):
 
 
 # TODO: Raises?
-def _pk_decrypt(key_pair, nonce, data):
+def _pk_decrypt(key_pair: Tuple[Key, Key], nonce: bytes, data: bytes):
     """
     Decrypt data by using public-key decryption.
 
@@ -76,7 +77,7 @@ def _pk_decrypt(key_pair, nonce, data):
         - `key_pair`: A tuple containing our private key and the public
           key of the sender.
         - `nonce`: The nonce of the encrypted data.
-        - `data`: Encrypted data (bytes).
+        - `data`: Encrypted data.
 
     Return the decrypted data.
     """

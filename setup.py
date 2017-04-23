@@ -42,6 +42,7 @@ tests_require = [
     'isort>=4.2.5',
     'collective.checkdocs>=0.2',
     'Pygments>=2.2.0',  # required by checkdocs
+    'mypy==0.501',
 ]
 
 setup(
@@ -60,6 +61,9 @@ setup(
     extras_require={
         ':python_version<="3.4"': [
             'asyncio==3.4.3',
+        ],
+        ':python_version<="3.5"': [
+            'typing>=3.6,<3.7',
         ],
         'dev': tests_require,
         'uvloop': ['uvloop>=0.8.0,<2'],

@@ -1,6 +1,8 @@
 """
 Contains all exceptions used for the Threema gateway service.
 """
+from typing import Dict  # noqa
+
 __all__ = (
     'GatewayError',
     'CallbackError',
@@ -59,7 +61,7 @@ class GatewayServerError(GatewayError):
     Arguments:
         - `status`: An HTTP status code.
     """
-    status_description = {}
+    status_description = {}  # type: Dict[int, str]
 
     def __init__(self, status):
         self.status = status
