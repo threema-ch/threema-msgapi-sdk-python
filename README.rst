@@ -124,6 +124,12 @@ imports (``isort``) and run the project's tests:
     $ isort -rc .
     $ py.test
 
+You should also run the type checker that might catch some additional bugs:
+
+.. code-block:: bash
+
+    $ mypy .
+
 Reporting Security Issues
 *************************
 
