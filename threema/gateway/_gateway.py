@@ -54,6 +54,11 @@ class Connection(AioRunMixin):
     :func:`~Connection.close` after you are done querying the Threema
     Gateway Service API.
 
+    The connection can work both in non-blocking (through asyncio) and blocking
+    mode. If you want to use the API in a blocking way (which implicitly starts
+    an event loop to process the requests), then instantiate this class with
+    ``blocking=True``.
+
     Arguments:
         - `id`: Threema ID of the sender.
         - `secret`: Threema Gateway secret.
@@ -67,6 +72,8 @@ class Connection(AioRunMixin):
         - `verify_fingerprint`: Set to `True` if you want to verify the
           TLS certificate of the Threema Gateway Server by a
           fingerprint. (Recommended)
+        - `blocking`: Whether to use a blocking API, without the need for an
+          explicit event loop.
     """
     async_functions = {
         'get_public_key',
