@@ -423,6 +423,28 @@ def connection(request, api_server, mock_url):
 
 
 @pytest.fixture(scope='module')
+def connection_blocking(request, api_server, mock_url):
+    # Note: We're not doing anything with the server but obviously the
+    # server needs to be started to be able to connect
+    connection_ = threema.gateway.Connection(
+        identity=pytest.msgapi.id,
+        secret=pytest.msgapi.secret,
+        key=pytest.msgapi.private,
+        blocking=True,
+    )
+
+    # Patch URLs
+    connection_.urls = {key: value.replace(pytest.msgapi.base_url, mock_url)
+                        for key, value in connection_.urls.items()}
+
+    def fin():
+        connection_.close()
+
+    request.addfinalizer(fin)
+    return connection_
+
+
+@pytest.fixture(scope='module')
 def invalid_connection(connection):
     invalid_connection_ = copy.copy(connection)
     invalid_connection_.id = pytest.msgapi.noexist_id
