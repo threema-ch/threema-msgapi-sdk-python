@@ -8,6 +8,7 @@ import inspect
 import io
 import logging
 import os
+from typing import Set  # noqa
 
 import libnacl
 import logbook
@@ -608,7 +609,7 @@ class AioRunMixin:
     Arguments:
         - `blocking`: Switch to turn the blocking API on or off.
     """
-    async_functions = set()
+    async_functions = set()  # type: Set[str]
 
     def __init__(self, blocking=False):
         self.blocking = blocking
