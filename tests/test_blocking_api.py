@@ -1,4 +1,7 @@
-from threema.gateway import e2e, simple
+from threema.gateway import (
+    e2e,
+    simple,
+)
 
 
 def test_lookup_id_by_phone(connection_blocking):
