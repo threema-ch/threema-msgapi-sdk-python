@@ -659,10 +659,15 @@ class DeliveryReceipt(Message):
     """
     @enum.unique
     class ReceiptType(enum.IntEnum):
-        """Describes message receipt types."""
+        """
+        Describes message receipt types.
+
+        .. warning:: `user_ack` is deprecated and will be removed with
+           the next major release. Use `user_acknowledge` instead.
+        """
         received = 0x01
         read = 0x02
-        user_acknowledge = 0x03
+        user_acknowledge = user_ack = 0x03
         user_decline = 0x04
 
     def __init__(
