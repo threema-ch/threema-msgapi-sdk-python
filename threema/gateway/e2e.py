@@ -657,7 +657,8 @@ class DeliveryReceipt(Message):
     Arguments:
         - `payload`: The remaining byte sequence of the message.
     """
-    @enum.unique
+    # TODO: Re-enable unique decorator and remove `user_ack` with next major version
+    # @enum.unique
     class ReceiptType(enum.IntEnum):
         """
         Describes message receipt types.
