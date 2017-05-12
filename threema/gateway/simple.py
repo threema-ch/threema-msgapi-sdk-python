@@ -20,6 +20,9 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
     """
     A message class all simple mode messages are derived from.
 
+    If the connection passed to the constructor is in blocking mode, then all
+    methods on this class will be blocking too.
+
     Attributes:
         - `connection`: An instance of a connection.
         - `to_id`: Threema ID of the recipient.
@@ -45,6 +48,9 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
 class TextMessage(Message):
     """
     Create and send a text message to a recipient.
+
+    If the connection passed to the constructor is in blocking mode, then all
+    methods on this class will be blocking too.
 
     Arguments / Attributes:
         - `connection`: An instance of a connection.

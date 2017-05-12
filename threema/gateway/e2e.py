@@ -292,6 +292,9 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
     """
     A message class all end-to-end mode messages are derived from.
 
+    If the connection passed to the constructor is in blocking mode, then all
+    methods on this class will be blocking too.
+
     Attributes:
         - `connection`: An instance of a connection.
         - `type_`: The message type.
@@ -680,7 +683,8 @@ class DeliveryReceipt(Message):
     Each delivery receipt message confirms the receipt of one
     or multiple regular text messages.
 
-    .. note:: Sending delivery receipts is not officially supported.
+    If the connection passed to the constructor is in blocking mode, then all
+    methods on this class will be blocking too.
 
     Arguments:
         - `payload`: The remaining byte sequence of the message.
@@ -770,6 +774,9 @@ class TextMessage(Message):
     """
     A text message.
 
+    If the connection passed to the constructor is in blocking mode, then all
+    methods on this class will be blocking too.
+
     Arguments for a new message:
         - `connection`: An instance of a connection.
         - `id`: Threema ID of the recipient.
@@ -835,6 +842,9 @@ class TextMessage(Message):
 class ImageMessage(Message):
     """
     An image message.
+
+    If the connection passed to the constructor is in blocking mode, then all
+    methods on this class will be blocking too.
 
     Arguments for a new message:
         - `connection`: An instance of a connection.
@@ -972,6 +982,9 @@ class ImageMessage(Message):
 class FileMessage(Message):
     """
     A file message including a thumbnail.
+
+    If the connection passed to the constructor is in blocking mode, then all
+    methods on this class will be blocking too.
 
     Arguments for a new message:
         - `connection`: An instance of a connection.
