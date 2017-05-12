@@ -5,6 +5,10 @@ import abc
 import asyncio
 
 from .exception import MessageError
+from .util import (
+    AioRunMixin,
+    aio_run_proxy_decorator,
+)
 
 __all__ = (
     'Message',
@@ -12,19 +16,27 @@ __all__ = (
 )
 
 
-class Message(metaclass=abc.ABCMeta):
+class Message(AioRunMixin, metaclass=abc.ABCMeta):
     """
     A message class all simple mode messages are derived from.
+
+    If the connection passed to the constructor is in blocking mode, then all
+    methods on this class will be blocking too.
 
     Attributes:
         - `connection`: An instance of a connection.
         - `to_id`: Threema ID of the recipient.
     """
-    # noinspection PyShadowingBuiltins
+    async_functions = {
+        'send',
+    }
+
     def __init__(self, connection=None, to_id=None):
-        self.connection = connection
+        super().__init__(blocking=connection.blocking)
+        self._connection = connection.unwrap
         self.to_id = to_id
 
+    @asyncio.coroutine
     @abc.abstractmethod
     def send(self):
         """
@@ -32,9 +44,13 @@ class Message(metaclass=abc.ABCMeta):
         """
 
 
+@aio_run_proxy_decorator
 class TextMessage(Message):
     """
     Create and send a text message to a recipient.
+
+    If the connection passed to the constructor is in blocking mode, then all
+    methods on this class will be blocking too.
 
     Arguments / Attributes:
         - `connection`: An instance of a connection.
@@ -43,6 +59,10 @@ class TextMessage(Message):
         - `email`: Email address of the recipient.
         - `text`: Message text.
     """
+    async_functions = {
+        'send',
+    }
+
     def __init__(self, phone=None, email=None, text=None, **kwargs):
         super().__init__(**kwargs)
         self.phone = phone
@@ -63,7 +83,7 @@ class TextMessage(Message):
         }
 
         # Validate parameters
-        if self.connection is None:
+        if self._connection is None:
             raise MessageError('No connection set')
         if not any(recipient.values()):
             raise MessageError('No recipient specified')
@@ -75,4 +95,4 @@ class TextMessage(Message):
         # Send message
         data = {key: value for key, value in recipient.items() if value is not None}
         data['text'] = self.text
-        return (yield from self.connection.send_simple(**data))
+        return (yield from self._connection.send_simple(**data))

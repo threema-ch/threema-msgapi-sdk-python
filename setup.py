@@ -56,6 +56,7 @@ setup(
         'libnacl>=1.5,<2',
         'click>=6.7,<7',  # doesn't seem to follow semantic versioning
         'aiohttp>=1.3.5,<2',
+        'wrapt>=1.10.10,<2',
     ],
     tests_require=tests_require,
     extras_require={

@@ -4,9 +4,11 @@ Utility functions.
 import asyncio
 import collections
 import functools
+import inspect
 import io
 import logging
 import os
+from typing import Set  # noqa
 
 import libnacl
 import logbook
@@ -14,6 +16,7 @@ import logbook.compat
 import logbook.more
 # noinspection PyPackageRequirements
 import lru
+import wrapt
 
 from .key import Key
 
@@ -29,6 +32,8 @@ __all__ = (
     'async_lru_cache',
     'aio_run',
     'aio_run_decorator',
+    'aio_run_proxy_decorator',
+    'AioRunMixin',
 )
 
 _logger_group = logbook.LoggerGroup()
@@ -520,6 +525,98 @@ def aio_run_decorator(loop=None, close_after_complete=False):
             func = asyncio.coroutine(func)
 
         def _wrapper(*args, **kwargs):
-            return aio_run(func(*args, **kwargs))
+            return aio_run(
+                func(*args, **kwargs),
+                loop=loop,
+                close_after_complete=close_after_complete,
+            )
         return functools.update_wrapper(_wrapper, func)
     return _decorator
+
+
+def aio_run_proxy_decorator(cls):
+    """
+    Proxy a publicly accessible class and run all methods marked as
+    async inside it (using the class attribute `async_functions`) with
+    an event loop to make it appear as a traditional blocking method.
+
+    Arguments:
+        - `cls`: A class to be wrapped. The class must inherit
+          :class:`AioRunMixin`. The class and all base classes must
+          supply a class attribute `async_functions` which is an
+          iterable of method names that should appear as traditional
+          blocking functions from the outside.
+
+    Returns a class factory.
+
+    .. note:: The `unwrap` property of the resulting instance can be
+              used to get the original instance.
+    """
+    # Ensure each base class has added a class-level iterable of async functions
+    async_functions = set()
+    for base_class in inspect.getmro(cls)[:-1]:
+        try:
+            async_functions.update(base_class.__dict__.get('async_functions', None))
+        except TypeError:
+            message = "Class {} is missing 'async_functions' iterable"
+            raise ValueError(message.format(base_class.__name__))
+
+    # Sanity-check
+    if not issubclass(cls, AioRunMixin):
+        raise TypeError("Class {} did not inherit 'AioRunMixin'".format(
+            cls.__name__))
+
+    class _AioRunProxyDecoratorFactory(wrapt.ObjectProxy):
+        def __call__(self, *args, **kwargs):
+            # Create instance
+            instance = cls(*args, **kwargs)
+
+            # Sanity-check
+            if not isinstance(instance, AioRunMixin):
+                raise TypeError("Class {} did not inherit 'AioRunMixin'".format(
+                    cls.__name__))
+
+            # Wrap with proxy (if required)
+            if instance.blocking:
+                class _AioRunProxy(wrapt.ObjectProxy):
+                    @property
+                    def unwrap(self):
+                        """
+                        Get the wrapped instance.
+                        """
+                        return self.__wrapped__
+
+                # Wrap all async functions with `aio_run`
+                for name in async_functions:
+                    def _method(instance_, name_, *args_, **kwargs_):
+                        method = aio_run_decorator()(getattr(instance_, name_))
+                        return method(*args_, **kwargs_)
+
+                    _method = functools.partial(_method, instance, name)
+                    setattr(_AioRunProxy, name, _method)
+
+                return _AioRunProxy(instance)
+            else:
+                return instance
+
+    return _AioRunProxyDecoratorFactory(cls)
+
+
+class AioRunMixin:
+    """
+    Must be inherited when using :func:`aio_run_proxy_decorator`.
+
+    Arguments:
+        - `blocking`: Switch to turn the blocking API on or off.
+    """
+    async_functions = set()  # type: Set[str]
+
+    def __init__(self, blocking=False):
+        self.blocking = blocking
+
+    @property
+    def unwrap(self):
+        """
+        Get the wrapped instance.
+        """
+        return self

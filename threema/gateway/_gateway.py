@@ -19,6 +19,8 @@ from .exception import (
 )
 from .key import Key
 from .util import (
+    AioRunMixin,
+    aio_run_proxy_decorator,
     async_lru_cache,
     raise_server_error,
 )
@@ -41,7 +43,8 @@ class ReceptionCapability(enum.Enum):
     file = 'file'
 
 
-class Connection:
+@aio_run_proxy_decorator
+class Connection(AioRunMixin):
     """
     Container for the sender's Threema ID and the Threema Gateway
     secret. Can be applied to multiple messages for both simple and
@@ -50,6 +53,11 @@ class Connection:
     You should either use the `with` statement on this class or call
     :func:`~Connection.close` after you are done querying the Threema
     Gateway Service API.
+
+    The connection can work both in non-blocking (through asyncio) and blocking
+    mode. If you want to use the API in a blocking way (which implicitly starts
+    an event loop to process the requests), then instantiate this class with
+    ``blocking=True``.
 
     Arguments:
         - `id`: Threema ID of the sender.
@@ -64,7 +72,19 @@ class Connection:
         - `verify_fingerprint`: Set to `True` if you want to verify the
           TLS certificate of the Threema Gateway Server by a
           fingerprint. (Recommended)
+        - `blocking`: Whether to use a blocking API, without the need for an
+          explicit event loop.
     """
+    async_functions = {
+        'get_public_key',
+        'get_id',
+        'get_reception_capabilities',
+        'get_credits',
+        'send_simple',
+        'send_e2e',
+        'upload',
+        'download',
+    }
     fingerprint = binascii.unhexlify(b'b07be4814ba2b006be7910a0a695370f')
     urls = {
         'get_public_key': 'https://msgapi.threema.ch/pubkeys/{}',
@@ -83,8 +103,9 @@ class Connection:
     def __init__(
             self, identity, secret,
             key=None, key_file=None,
-            fingerprint=None, verify_fingerprint=False
+            fingerprint=None, verify_fingerprint=False, blocking=False
     ):
+        super().__init__(blocking=blocking)
         if fingerprint is None and verify_fingerprint:
             fingerprint = self.fingerprint
         connector = aiohttp.TCPConnector(fingerprint=fingerprint)

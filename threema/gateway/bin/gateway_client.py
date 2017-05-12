@@ -23,6 +23,7 @@ from threema.gateway.key import (
     HMAC,
     Key,
 )
+from threema.gateway.util import AioRunMixin
 
 _logging_handler = None
 _logging_levels = {
@@ -45,8 +46,9 @@ if _test_port is not None:
                 'The Threema Gateway Server will not be contacted!'), err=True)
 
 
-class _MockConnection:
+class _MockConnection(AioRunMixin):
     def __init__(self, private_key, public_key, identity=None):
+        super().__init__(blocking=False)
         self.key = private_key
         self._public_key = public_key
         self.id = identity
@@ -463,9 +465,9 @@ def main():
         cli()
     except aiohttp.FingerprintMismatch:
         error = 'Fingerprints did not match!'
-    except Exception as exc:
-        error = str(exc)
-        exc = exc
+    except Exception as exc_:
+        error = str(exc_)
+        exc = exc_
     else:
         error = None
 
