@@ -85,7 +85,8 @@ class Connection(AioRunMixin):
         'upload',
         'download',
     }
-    fingerprint = binascii.unhexlify(b'b07be4814ba2b006be7910a0a695370f')
+    fingerprint = binascii.unhexlify(
+        b'a6840a28041a1c43d90c21122ea324272f5c90c82dd64f52701f3a8f1a2b395b')
     urls = {
         'get_public_key': 'https://msgapi.threema.ch/pubkeys/{}',
         'get_id_by_phone': 'https://msgapi.threema.ch/lookup/phone/{}',
