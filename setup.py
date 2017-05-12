@@ -24,7 +24,7 @@ def read(file):
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 # Import long description
-long_description = read('README.rst')
+long_description = '\n\n'.join((read('README.rst'), read('CHANGELOG.rst')))
 
 # Check python version
 py_version = sys.version_info[:2]
