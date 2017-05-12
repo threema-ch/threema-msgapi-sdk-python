@@ -17,7 +17,11 @@ from threema.gateway.key import Key
 
 @asyncio.coroutine
 def main():
-    connection = Connection('*YOUR_GATEWAY_THREEMA_ID', 'YOUR_GATEWAY_THREEMA_ID_SECRET')
+    connection = Connection(
+        identity='*YOUR_GATEWAY_THREEMA_ID',
+        secret='YOUR_GATEWAY_THREEMA_ID_SECRET',
+        verify_fingerprint=True,
+    )
     try:
         with connection:
             print((yield from connection.get_credits()))

@@ -15,9 +15,10 @@ from threema.gateway.key import Key
 
 def main():
     connection = Connection(
-        blocking=True,
         identity='*YOUR_GATEWAY_THREEMA_ID',
         secret='YOUR_GATEWAY_THREEMA_ID_SECRET',
+        verify_fingerprint=True,
+        blocking=True,
     )
     try:
         with connection:
