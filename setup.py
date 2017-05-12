@@ -79,7 +79,7 @@ setup(
 
     # PyPI metadata
     author='Lennart Grahl',
-    author_email='lennart.grahl@threema.ch',
+    author_email='lennart.grahl@gmail.com',
     description=('An API for the Threema gateway service to send and receive'
                  'messages including text, images, files and delivery reports.'),
     long_description=long_description,

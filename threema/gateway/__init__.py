@@ -19,7 +19,7 @@ There are two main modes of operation:
 
 The mode that you can use depends on the way your account was set up.
 
-.. moduleauthor:: Lennart Grahl <lennart.grahl@threema.ch>
+.. moduleauthor:: Lennart Grahl <lennart.grahl@gmail.com>
 """
 import itertools
 
@@ -28,9 +28,9 @@ from ._gateway import *  # noqa
 # noinspection PyUnresolvedReferences
 from .exception import *  # noqa
 
-__author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
+__author__ = 'Lennart Grahl <lennart.grahl@gmail.com>'
 __status__ = 'Production'
-__version__ = '3.0.1'
+__version__ = '3.0.2'
 feature_level = 3
 
 __all__ = tuple(itertools.chain(
