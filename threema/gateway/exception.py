@@ -1,8 +1,11 @@
 """
 Contains all exceptions used for the Threema gateway service.
 """
+from typing import Dict  # noqa
+
 __all__ = (
     'GatewayError',
+    'CallbackError',
     'GatewayServerError',
     'IDError',
     'IDServerError',
@@ -11,6 +14,7 @@ __all__ = (
     'ReceptionCapabilitiesError',
     'ReceptionCapabilitiesServerError',
     'CreditsServerError',
+    'DirectionError',
     'MessageError',
     'UnsupportedMimeTypeError',
     'MissingCapabilityError',
@@ -27,6 +31,23 @@ class GatewayError(Exception):
     """
 
 
+class CallbackError(GatewayError):
+    """
+    Indicates that the callback does not accept the message. The
+    *status* code will be returned to the sender.
+
+    Arguments:
+        - `status`: An HTTP status code.
+        - `reason`: Reason of the *status*.
+    """
+    def __init__(self, status, reason):
+        self.status = status
+        self.reason = reason
+
+    def __str__(self):
+        return '[{]}] {]'.format(self.status, self.reason)
+
+
 class GatewayServerError(GatewayError):
     """
     The server has responded with an error code. All other server
@@ -40,7 +61,7 @@ class GatewayServerError(GatewayError):
     Arguments:
         - `status`: An HTTP status code.
     """
-    status_description = {}
+    status_description = {}  # type: Dict[int, str]
 
     def __init__(self, status):
         self.status = status
@@ -127,10 +148,16 @@ class CreditsServerError(GatewayServerError):
     }
 
 
+class DirectionError(GatewayError):
+    """
+    Indicates that a message can not be processed for the specified
+    direction because required parameters are missing.
+    """
+
+
 class MessageError(GatewayError):
     """
-    Indicates that a message is invalid. The server has not been
-    contacted, yet.
+    Indicates that a message is invalid.
     """
 
 

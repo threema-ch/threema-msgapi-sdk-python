@@ -1,0 +1,54 @@
+# Use container system
+sudo: false
+
+# Cache pip & libsodium
+cache:
+  directories:
+  - $HOME/libsodium
+  - $HOME/.cache/pip
+
+# Clean up pip log
+before_cache:
+  - rm -f $HOME/.cache/pip/log/debug.log
+
+# Build matrix
+language: python
+matrix:
+  include:
+  - python: "3.4"
+    env: EVENT_LOOP=asyncio
+  - python: "3.5"
+    env: EVENT_LOOP=asyncio
+  - python: "3.5"
+    env: EVENT_LOOP=uvloop
+    before_script: "pip install .[uvloop]"
+  - python: "3.6"
+    env: EVENT_LOOP=asyncio
+  - python: "3.6"
+    env: EVENT_LOOP=uvloop
+    before_script: "pip install .[uvloop]"
+
+# Install dependencies
+before_install:
+  - ./.travis-install-libsodium.sh
+  - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${HOME}/libsodium/lib
+install:
+  - pip install -U setuptools pip
+  - "pip install .[dev]"
+  - pip install codecov
+
+# Run flake8, isort, check docs & tests
+script:
+  - >
+    if [[ "$TRAVIS_PYTHON_VERSION" != "pypy3" ]]; then
+      flake8 . || travis_terminate 1;
+      isort -rc -c . || (isort -rc -df . && return 1) || travis_terminate 1;
+    fi
+  - python setup.py checkdocs
+  - py.test --cov-config .coveragerc --cov=threema.gateway --loop=$EVENT_LOOP
+  - mypy .
+
+# After success
+after_success:
+  - codecov
+
