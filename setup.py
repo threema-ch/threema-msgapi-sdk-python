@@ -2,7 +2,10 @@ import ast
 import os
 import sys
 
-from setuptools import setup
+from setuptools import (
+    find_packages,
+    setup,
+)
 
 
 def get_version():
@@ -48,7 +51,7 @@ tests_require = [
 setup(
     name='threema.gateway',
     version=get_version(),
-    packages=['threema', 'threema.gateway'],
+    packages=find_packages(),
     namespace_packages=['threema'],
     install_requires=[
         'py_lru_cache>=0.1.4,<0.2',
