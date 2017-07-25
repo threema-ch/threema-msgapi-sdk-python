@@ -9,7 +9,6 @@ Signing key: https://lgrahl.de/pub/pgp-key.txt
    flake8 .
    isort -rc -c . || isort -rc -df
    mypy .
-   python setup.py checkdocs
    py.test
    ```
 
@@ -22,6 +21,8 @@ Signing key: https://lgrahl.de/pub/pgp-key.txt
 
 3. Update version number in ``threema/gateway/__init__.py`` and
    ``CHANGELOG.rst``, also update the URL with the corresponding tags.
+
+   Run `python setup.py checkdocs`.
 
 4. Do a signed commit and signed tag of the release:
 
