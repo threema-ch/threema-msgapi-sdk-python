@@ -52,7 +52,6 @@ __all__ = (
 BLOB_ID_LENGTH = 16
 
 
-# TODO: Raises?
 def _pk_encrypt(key_pair: Tuple[Key, Key], data: bytes, nonce: bytes = None):
     """
     Encrypt data by using public-key encryption.
@@ -63,6 +62,9 @@ def _pk_encrypt(key_pair: Tuple[Key, Key], data: bytes, nonce: bytes = None):
         - `data`: Raw data.
         - `nonce`: A predefined nonce.
 
+    Raises `libnacl.CryptError` in case the data could not be encrypted.
+    Raises `ValueError` in other cases.
+
     Return a tuple of bytes containing the nonce and the encrypted
     data.
     """
@@ -72,7 +74,6 @@ def _pk_encrypt(key_pair: Tuple[Key, Key], data: bytes, nonce: bytes = None):
     return box.encrypt(data, nonce=nonce, pack_nonce=False)
 
 
-# TODO: Raises?
 def _pk_decrypt(key_pair: Tuple[Key, Key], nonce: bytes, data: bytes):
     """
     Decrypt data by using public-key decryption.
@@ -82,6 +83,9 @@ def _pk_decrypt(key_pair: Tuple[Key, Key], nonce: bytes, data: bytes):
           key of the sender.
         - `nonce`: The nonce of the encrypted data.
         - `data`: Encrypted data.
+
+    Raises `libnacl.CryptError` in case the data could not be decrypted.
+    Raises `ValueError` in other cases.
 
     Return the decrypted data.
     """
@@ -650,7 +654,7 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
         # Encrypt
         try:
             return _pk_encrypt(key_pair, data, nonce=nonce)
-        except ValueError as exc:
+        except (ValueError, libnacl.CryptError) as exc:
             raise MessageError('Could not encrypt data') from exc
 
     @classmethod
@@ -671,8 +675,8 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
         # Decrypt
         try:
             return _pk_decrypt(key_pair, nonce, data)
-        except ValueError:
-            raise MessageError('Could not decrypt data')
+        except (ValueError, libnacl.CryptError) as exc:
+            raise MessageError('Could not decrypt data') from exc
 
 
 # TODO: Update docstring (arguments)
