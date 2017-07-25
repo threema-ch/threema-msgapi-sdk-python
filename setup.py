@@ -38,14 +38,14 @@ if py_version < (3, 4):
 # Note: These are just tools that aren't required, so a version range
 #       is not necessary here.
 tests_require = [
-    'pytest>=2.8.4',
-    'pytest-asyncio>=0.2.0',
-    'pytest-cov>=2.4.0',
+    'pytest>=3.1.3',
+    'pytest-asyncio>=0.6.0',
+    'pytest-cov>=2.5.1',
     'flake8>=3.3.0',
-    'isort>=4.2.5',
+    'isort>=4.2.15',
     'collective.checkdocs>=0.2',
     'Pygments>=2.2.0',  # required by checkdocs
-    'mypy==0.501',
+    'mypy>=0.521',
 ]
 
 setup(
@@ -55,8 +55,8 @@ setup(
     namespace_packages=['threema'],
     install_requires=[
         'py_lru_cache>=0.1.4,<0.2',
-        'logbook>=1,<2',
-        'libnacl>=1.5,<2',
+        'logbook>=1.1.0,<2',
+        'libnacl>=1.5.2,<2',
         'click>=6.7,<7',  # doesn't seem to follow semantic versioning
         'aiohttp>=1.3.5,<2',
         'wrapt>=1.10.10,<2',
@@ -65,9 +65,10 @@ setup(
     extras_require={
         ':python_version<="3.4"': [
             'asyncio==3.4.3',
+            'pytest-asyncio==0.5.0'
         ],
         ':python_version<="3.5"': [
-            'typing>=3.6,<3.7',
+            'typing>=3.6.1,<3.7',
         ],
         'dev': tests_require,
         'uvloop': ['uvloop>=0.8.0,<2'],
