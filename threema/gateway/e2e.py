@@ -167,7 +167,11 @@ class AbstractCallback(metaclass=abc.ABCMeta):
 
     # noinspection PyMethodMayBeStatic
     def create_application(self, router, loop):
-        return web.Application(router=router, loop=loop)
+        # A box can contain up to 4000 bytes, so this should be sufficient.
+        # The remaining POST parameters aren't that big.
+        # See: https://gateway.threema.ch/en/developer/api
+        request_size_max = 8192
+        return web.Application(router=router, loop=loop, client_max_size=request_size_max)
 
     def create_handler(self):
         return self.application.make_handler()

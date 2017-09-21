@@ -11,8 +11,6 @@ import click
 import logbook
 import logbook.more
 
-from aiohttp.client_exceptions import ServerFingerprintMismatch
-
 from threema.gateway import __version__ as _version
 from threema.gateway import (
     Connection,
@@ -465,12 +463,11 @@ def main():
     exc = None
     try:
         cli()
+    except aiohttp.client_exceptions.ServerFingerprintMismatch:
+        error = 'Fingerprints did not match!'
     except Exception as exc_:
-        if isinstance(exc_, ServerFingerprintMismatch):
-            error = 'Fingerprints did not match!'
-        else:
-            error = str(exc_)
-            exc = exc_
+        error = str(exc_)
+        exc = exc_
     else:
         error = None
 
