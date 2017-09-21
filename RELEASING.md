@@ -62,6 +62,10 @@ Signing key: https://lgrahl.de/pub/pgp-key.txt
    ```rst
    `Unreleased`_ (YYYY-MM-DD)
    --------------------------
+
+   ...
+
+   .. _Unreleased: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/<VERSION>...HEAD
    ```
 
 10. Pat yourself on the back and celebrate!
