@@ -377,7 +377,8 @@ def api_server_port():
 @pytest.fixture(scope='module')
 def api_server(request, event_loop, api_server_port, server):
     port = api_server_port
-    app = web.Application(loop=event_loop, router=server.router)
+    app = web.Application(
+        loop=event_loop, router=server.router, client_max_size=100 * (2**20))
     handler = app.make_handler()
 
     # Set up server

@@ -463,7 +463,7 @@ def main():
     exc = None
     try:
         cli()
-    except aiohttp.FingerprintMismatch:
+    except aiohttp.client_exceptions.ServerFingerprintMismatch:
         error = 'Fingerprints did not match!'
     except Exception as exc_:
         error = str(exc_)
