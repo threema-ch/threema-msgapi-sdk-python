@@ -386,7 +386,7 @@ def api_server(request, event_loop, api_server_port, server):
     server_ = event_loop.run_until_complete(coroutine)
 
     def fin():
-        event_loop.run_until_complete(handler.finish_connections(1.0))
+        event_loop.run_until_complete(handler.shutdown(1.0))
         server_.close()
         event_loop.run_until_complete(server_.wait_closed())
         event_loop.run_until_complete(app.cleanup())
