@@ -190,7 +190,7 @@ class AbstractCallback(metaclass=abc.ABCMeta):
     def close(self, timeout=10.0):
         # Stop handler and application
         yield from self.application.shutdown()
-        yield from self.handler.finish_connections(timeout=timeout)
+        yield from self.handler.shutdown(timeout=timeout)
         yield from self.application.cleanup()
 
     @asyncio.coroutine
