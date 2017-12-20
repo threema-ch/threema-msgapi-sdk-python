@@ -26,7 +26,8 @@ def start():
     )
 
     # Create the callback instance
-    callback = Callback(connection)
+    route = '/gateway_callback'
+    callback = Callback(connection, route=route)
 
     # Start the callback server and listen on any interface at port 8443
     server = yield from callback.create_server(
@@ -55,6 +56,14 @@ if __name__ == '__main__':
         server, callback = loop.run_until_complete(start())
         # Ctrl+C: Terminate the server and the callback application
         try:
+            print('Listening on:\n')
+            for socket in server.sockets:
+                host = socket.getsockname()[0]
+                port = socket.getsockname()[1]
+                if host == '::':
+                    host = '[::]'
+                print('  https://{}:{}{}'.format(host, port, callback.route))
+            print('\nStarted callback server. Press Ctrl+C to terminate.')
             loop.run_forever()
         except KeyboardInterrupt:
             pass
