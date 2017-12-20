@@ -1,4 +1,5 @@
 import asyncio
+import ipaddress
 
 import logbook
 import logbook.more
@@ -59,8 +60,9 @@ if __name__ == '__main__':
             print('Listening on:\n')
             for socket in server.sockets:
                 host, port, *_ = socket.getsockname()
-                if host == '::':
-                    host = '[::]'
+                host = ipaddress.ip_address(host)
+                if isinstance(host, ipaddress.IPv6Address):
+                    host = '[{}]'.format(host)
                 print('  https://{}:{}{}'.format(host, port, callback.route))
             print('\nStarted callback server. Press Ctrl+C to terminate.')
             loop.run_forever()
