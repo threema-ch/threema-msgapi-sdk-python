@@ -142,13 +142,13 @@ class AbstractCallback(metaclass=abc.ABCMeta):
     Raises :exc:`TypeError` in case no valid certificate has been
     provided.
     """
-    def __init__(self, connection, loop=None):
+    def __init__(self, connection, loop=None, route='/gateway_callback'):
         self.connection = connection
         # Note: I'm guessing here the secret must be ASCII
         self.encoded_secret = connection.secret.encode('ascii')
         self.loop = asyncio.get_event_loop() if loop is None else loop
         # Create router
-        self.router = self.create_router()
+        self.router = self.create_router(route)
         # Create application
         self.application = self.create_application(self.router, loop)
         self.handler = self.create_handler()
@@ -160,9 +160,10 @@ class AbstractCallback(metaclass=abc.ABCMeta):
         ssl_context.load_cert_chain(certfile=certfile, keyfile=keyfile)
         return ssl_context
 
-    def create_router(self):
+    def create_router(self, route):
+        self.route = route
         router = UrlDispatcher()
-        router.add_route('POST', '/gateway_callback', self._handle_and_catch_error)
+        router.add_route('POST', route, self._handle_and_catch_error)
         return router
 
     # noinspection PyMethodMayBeStatic
