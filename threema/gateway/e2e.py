@@ -142,7 +142,7 @@ class AbstractCallback(metaclass=abc.ABCMeta):
     Raises :exc:`TypeError` in case no valid certificate has been
     provided.
     """
-    def __init__(self, connection, *, loop=None, route='/gateway_callback'):
+    def __init__(self, connection, loop=None, route='/gateway_callback'):
         self.connection = connection
         # Note: I'm guessing here the secret must be ASCII
         self.encoded_secret = connection.secret.encode('ascii')
