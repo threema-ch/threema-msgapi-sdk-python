@@ -69,6 +69,14 @@ the Threema gateway. Run the following command to see usage information:
 
     $ threema-gateway --help
 
+Examples
+********
+
+You can find a few example scripts in the ``examples/`` directory.
+
+Note that most of them need to be adjusted to at least add your gateway ID
+credentials before they run successfully.
+
 Feature Levels
 **************
 
