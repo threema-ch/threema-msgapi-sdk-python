@@ -30,7 +30,7 @@ def start():
 
     # Start the callback server and listen on any interface at port 8443
     server = yield from callback.create_server(
-        certfile='PATH_TO_SSL_PEM_CERTIFICATE',
+        certfile='PATH_TO_SSL_PEM_CERTIFICATE_CHAIN',
         keyfile='PATH_TO_SSL_PRIVATE_KEY',
         port=8443
     )
