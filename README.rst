@@ -102,6 +102,27 @@ line. Run the following command to see usage information.
 
 The script resides `here <threema/gateway/bin/callback_server.py>`_.
 
+Troubleshooting
+***************
+
+**Invalid environment marker: python_version<="3.4"**
+
+If you're getting the following error when installing the library::
+
+    Unpacking /tmp/threema-msgapi-sdk-python
+      Running setup.py (path:/tmp/pip-5b1d7h0w-build/setup.py) egg_info for package from file:///tmp/threema-msgapi-sdk-python
+        error in threema.gateway setup command: Invalid environment marker: python_version<="3.4"
+        Complete output from command python setup.py egg_info:
+        error in threema.gateway setup command: Invalid environment marker: python_version<="3.4"
+
+... then you have an old version of setuptools installed. If you use a venv (as
+described in the "Prerequisites" section), enter it (using ``source
+venv/bin/activate``) and then upgrade setuptools::
+
+    $ pip install -U setuptools
+
+Now installing the ``threema.gateway`` module should work.
+
 Contributing
 ************
 
