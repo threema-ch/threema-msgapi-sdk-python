@@ -58,8 +58,7 @@ if __name__ == '__main__':
         try:
             print('Listening on:\n')
             for socket in server.sockets:
-                host = socket.getsockname()[0]
-                port = socket.getsockname()[1]
+                host, port = socket.getsockname()
                 if host == '::':
                     host = '[::]'
                 print('  https://{}:{}{}'.format(host, port, callback.route))
