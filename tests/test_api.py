@@ -552,6 +552,21 @@ class TestSendE2E:
         assert all((yield from get_latest_blob_ids(server, connection)))
 
     @pytest.mark.asyncio
+    def test_video(self, connection, server):
+        server.latest_blob_ids = []
+        id_ = yield from e2e.VideoMessage(
+            connection=connection,
+            to_id='ECHOECHO',
+            key=server.echoecho_encoded_key,
+            duration=1,
+            video_path=server.threema_mp4,
+            thumbnail_path=server.threema_jpg,
+        ).send()
+        assert id_ == '1' * 16
+        assert len(server.latest_blob_ids) == 2
+        assert all((yield from get_latest_blob_ids(server, connection)))
+
+    @pytest.mark.asyncio
     def test_file(self, connection, server):
         server.latest_blob_ids = []
         id_ = yield from e2e.FileMessage(

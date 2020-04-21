@@ -120,6 +120,28 @@ class TestCLI:
         assert len(server.latest_blob_ids) == 2
 
     @pytest.mark.asyncio
+    def test_send_video(self, cli, server):
+        server.latest_blob_ids = []
+        output_1 = yield from cli(
+            'send_video', 'ECHOECHO', pytest.msgapi.id, pytest.msgapi.secret,
+            pytest.msgapi.private, server.threema_mp4, server.threema_jpg)
+        assert output_1
+        assert len(server.latest_blob_ids) == 2
+        output_2 = yield from cli(
+            'send_video', 'ECHOECHO', pytest.msgapi.id, pytest.msgapi.secret,
+            pytest.msgapi.private, server.threema_mp4, server.threema_jpg,
+            '-k', server.echoecho_encoded_key)
+        assert output_2
+        assert output_1 == output_2
+        assert len(server.latest_blob_ids) == 4
+        output = yield from cli(
+            'send_video', 'ECHOECHO', pytest.msgapi.id, pytest.msgapi.secret,
+            pytest.msgapi.private, server.threema_mp4, server.threema_jpg,
+            '-d', '1337')
+        assert output
+        assert len(server.latest_blob_ids) == 6
+
+    @pytest.mark.asyncio
     def test_send_file(self, cli, server):
         server.latest_blob_ids = []
         output_1 = yield from cli(

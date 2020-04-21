@@ -61,6 +61,24 @@ class TestCallback:
         assert outgoing.image == incoming.image
 
     @pytest.mark.asyncio
+    def test_video(self, connection, callback_send, callback_receive, server):
+        outgoing = e2e.VideoMessage(
+            connection,
+            to_id=pytest.msgapi.id,
+            duration=1,
+            video_path=server.threema_mp4,
+            thumbnail_path=server.threema_jpg,
+        )
+        response = yield from callback_send(outgoing)
+        yield from response.release()
+        incoming = yield from callback_receive()
+        assert outgoing.from_id == incoming.from_id
+        assert outgoing.to_id == incoming.to_id
+        assert outgoing.duration == incoming.duration
+        assert outgoing.video == incoming.video
+        assert outgoing.thumbnail_content == incoming.thumbnail_content
+
+    @pytest.mark.asyncio
     def test_file_message(self, connection, callback_send, callback_receive, server):
         outgoing = e2e.FileMessage(
             connection,

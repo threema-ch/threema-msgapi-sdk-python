@@ -342,6 +342,58 @@ def send_image(ctx, **arguments):
         click.echo((yield from message.send()))
 
 
+@cli.command(short_help='Send a video using end-to-end mode.', help="""
+Encrypt and send a video ('mp4') including a thumbnail to the given ID.
+FROM is the API identity and SECRET is the API secret.
+VIDEO_PATH is a relative or absolute path to a video.
+THUMBNAIL_PATH is a relative or absolute path to a thumbnail.
+Prints the message ID on success.
+""")
+@click.argument('to')
+@click.argument('from')
+@click.argument('secret')
+@click.argument('private_key')
+@click.argument('video_path')
+@click.argument('thumbnail_path')
+@click.option('-k', '--public-key', help="""
+The public key of the recipient. Will be fetched automatically if not provided.
+""")
+@click.option('-d', '--duration', help="""
+Duration of the video in seconds. Defaults to 0.
+""", default=0)
+@click.pass_context
+@util.aio_run_decorator()
+def send_video(ctx, **arguments):
+    # Get key instances
+    private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
+    if arguments['public_key'] is not None:
+        public_key = util.read_key_or_key_file(arguments['public_key'], Key.Type.public)
+    else:
+        public_key = None
+
+    # Create connection
+    connection = Connection(
+        identity=arguments['from'],
+        secret=arguments['secret'],
+        key=private_key,
+        **ctx.obj
+    )
+
+    with connection:
+        # Create message
+        message = e2e.VideoMessage(
+            connection=connection,
+            to_id=arguments['to'],
+            key=public_key,
+            duration=arguments['duration'],
+            video_path=arguments['video_path'],
+            thumbnail_path=arguments['thumbnail_path']
+        )
+
+        # Send message
+        click.echo((yield from message.send()))
+
+
 @cli.command(short_help='Send a file using end-to-end mode.', help="""
 Encrypt and send a file to the given ID, optionally with a thumbnail.
 FROM is the API identity and SECRET is the API secret.

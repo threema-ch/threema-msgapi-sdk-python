@@ -14,6 +14,7 @@ from threema.gateway.e2e import (
     FileMessage,
     ImageMessage,
     TextMessage,
+    VideoMessage,
 )
 
 
@@ -77,6 +78,24 @@ def send_image(connection):
     return message.send()
 
 
+def send_video(connection):
+    """
+    Send a video including a thumbnail to a specific Threema ID.
+
+    Note that the public key will be automatically fetched from the
+    Threema servers. It is strongly recommended that you cache
+    public keys to avoid querying the API for each message.
+    """
+    message = VideoMessage(
+        connection=connection,
+        to_id='ECHOECHO',
+        duration=1,
+        video_path='res/threema.mp4',
+        thumbnail_path='res/threema.jpg',
+    )
+    return message.send()
+
+
 def send_file(connection):
     """
     Send a file to a specific Threema ID.
@@ -124,6 +143,7 @@ def main():
             send_cached_key(connection)
             send_cached_key_file(connection)
             send_image(connection)
+            send_video(connection)
             send_file(connection)
             send_file_with_thumbnail(connection)
     except GatewayError as exc:
