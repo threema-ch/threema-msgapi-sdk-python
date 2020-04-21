@@ -20,6 +20,10 @@ import threema.gateway
 from threema.gateway import e2e
 from threema.gateway.key import Key
 
+# Turn off deprecation warnings for now
+# TODO: Port code to async/await
+os.environ['PYTHONWARNINGS'] = 'ignore'
+
 _res_path = os.path.normpath(os.path.join(
     os.path.abspath(__file__), os.pardir, 'res'))
 
@@ -85,7 +89,7 @@ class Server:
     @asyncio.coroutine
     def pubkeys(self, request):
         key = request.match_info['key']
-        from_, secret = request.GET['from'], request.GET['secret']
+        from_, secret = request.query['from'], request.query['secret']
         if (from_, secret) not in pytest.msgapi.api_identities:
             return web.Response(status=401)
         elif len(key) != 8:
@@ -99,7 +103,7 @@ class Server:
     @asyncio.coroutine
     def lookup_phone(self, request):
         phone = request.match_info['phone']
-        from_, secret = request.GET['from'], request.GET['secret']
+        from_, secret = request.query['from'], request.query['secret']
         if (from_, secret) not in pytest.msgapi.api_identities:
             return web.Response(status=401)
         elif not phone.isdigit():
@@ -111,7 +115,7 @@ class Server:
     @asyncio.coroutine
     def lookup_phone_hash(self, request):
         phone_hash = request.match_info['phone_hash']
-        from_, secret = request.GET['from'], request.GET['secret']
+        from_, secret = request.query['from'], request.query['secret']
         hash_ = '98b05f6eda7a878f6f016bdcdc9db6eb61a6b190e814ff787142115af144214c'
         if (from_, secret) not in pytest.msgapi.api_identities:
             return web.Response(status=401)
@@ -127,7 +131,7 @@ class Server:
     @asyncio.coroutine
     def lookup_email(self, request):
         email = request.match_info['email']
-        from_, secret = request.GET['from'], request.GET['secret']
+        from_, secret = request.query['from'], request.query['secret']
         if (from_, secret) not in pytest.msgapi.api_identities:
             return web.Response(status=401)
         elif email == 'echoecho@example.com':
@@ -137,7 +141,7 @@ class Server:
     @asyncio.coroutine
     def lookup_email_hash(self, request):
         email_hash = request.match_info['email_hash']
-        from_, secret = request.GET['from'], request.GET['secret']
+        from_, secret = request.query['from'], request.query['secret']
         hash_ = '45a13d422b40f81936a9987245d3f6d9064c90607273af4f578246b4484669e2'
         if (from_, secret) not in pytest.msgapi.api_identities:
             return web.Response(status=401)
@@ -153,7 +157,7 @@ class Server:
     @asyncio.coroutine
     def capabilities(self, request):
         id_ = request.match_info['id']
-        from_, secret = request.GET['from'], request.GET['secret']
+        from_, secret = request.query['from'], request.query['secret']
         if (from_, secret) not in pytest.msgapi.api_identities:
             return web.Response(status=401)
         elif id_ == 'ECHOECHO':
@@ -164,7 +168,7 @@ class Server:
 
     @asyncio.coroutine
     def credits(self, request):
-        from_, secret = request.GET['from'], request.GET['secret']
+        from_, secret = request.query['from'], request.query['secret']
         if (from_, secret) not in pytest.msgapi.api_identities:
             return web.Response(status=401)
         return web.Response(body=b'100')
@@ -227,7 +231,7 @@ class Server:
             data = (yield from request.post())
 
             # Check API identity
-            api_identity = (request.GET['from'], request.GET['secret'])
+            api_identity = (request.query['from'], request.query['secret'])
             if api_identity not in pytest.msgapi.api_identities:
                 return web.Response(status=401)
         except KeyError:
@@ -244,7 +248,7 @@ class Server:
         blob_id = hashlib.md5(blob).hexdigest()
 
         # Process
-        if request.GET['from'] == pytest.msgapi.nocredit_id:
+        if request.query['from'] == pytest.msgapi.nocredit_id:
             return web.Response(status=402)
         elif len(blob) == 0:
             return web.Response(status=400)
@@ -261,7 +265,7 @@ class Server:
         blob_id = request.match_info['blob_id']
 
         # Check API identity
-        from_, secret = request.GET['from'], request.GET['secret']
+        from_, secret = request.query['from'], request.query['secret']
         if (from_, secret) not in pytest.msgapi.api_identities:
             return web.Response(status=401)
 

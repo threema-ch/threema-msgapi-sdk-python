@@ -23,10 +23,15 @@ from threema.gateway.exception import (
 
 
 @asyncio.coroutine
+def download_blob(connection, blob_id):
+    response = yield from connection.download(blob_id)
+    return response.read()
+
+
+@asyncio.coroutine
 def get_latest_blob_ids(server, connection):
-    blobs = [(yield from (yield from connection.download(blob_id)).read())
-             for blob_id in server.latest_blob_ids]
-    return blobs
+    return asyncio.gather(*[download_blob(connection, blob_id)
+                            for blob_id in server.latest_blob_ids])
 
 
 class TestLookupPublicKey:
@@ -54,16 +59,17 @@ class TestLookupPublicKey:
         assert key.hex_pk() == server.echoecho_key
 
     @pytest.mark.asyncio
+    @asyncio.coroutine
     def test_cache_expiration(self, connection, server):
         connection.get_public_key.cache_clear()
         connection.get_public_key.cache.expiration = 0.05
         for _ in range(10):
-            yield from self.test_valid_id(connection, server)
+            yield from connection.get_public_key('ECHOECHO')
         cache_info = connection.get_public_key.cache_info()
         assert cache_info.misses == 1
         assert cache_info.hits == 9
         yield from asyncio.sleep(0.2)
-        yield from self.test_valid_id(connection, server)
+        yield from connection.get_public_key('ECHOECHO')
         cache_info = connection.get_public_key.cache_info()
         # For some reason, the cache is not always being cleared and I don't want
         # Travis to fail all the time
