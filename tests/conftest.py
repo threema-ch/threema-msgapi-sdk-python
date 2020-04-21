@@ -64,6 +64,7 @@ class RawMessage(e2e.Message):
 class Server:
     def __init__(self):
         self.threema_jpg = os.path.join(_res_path, 'threema.jpg')
+        self.threema_mp4 = os.path.join(_res_path, 'threema.mp4')
         key = b'4a6a1b34dcef15d43cb74de2fd36091be99fbbaf126d099d47d83d919712c72b'
         self.echoecho_key = key
         self.echoecho_encoded_key = 'public:' + key.decode('ascii')
@@ -163,7 +164,7 @@ class Server:
         elif id_ == 'ECHOECHO':
             return web.Response(body=b'text,image,video,file')
         elif id_ == '*MOCKING':
-            return web.Response(body=b'text,image,file')
+            return web.Response(body=b'text,image,video,file')
         return web.Response(status=404)
 
     @asyncio.coroutine

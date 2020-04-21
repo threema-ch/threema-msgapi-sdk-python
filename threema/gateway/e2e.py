@@ -46,6 +46,7 @@ __all__ = (
     'DeliveryReceipt',
     'TextMessage',
     'ImageMessage',
+    'VideoMessage',
     'FileMessage',
 )
 
@@ -142,6 +143,7 @@ class AbstractCallback(metaclass=abc.ABCMeta):
     Raises :exc:`TypeError` in case no valid certificate has been
     provided.
     """
+
     def __init__(self, connection, loop=None, route='/gateway_callback'):
         self.connection = connection
         # Note: I'm guessing here the secret must be ASCII
@@ -326,6 +328,7 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
         'encrypt',
     }
     nonce = {
+        'video': (b'\x00' * 23) + b'\x01',
         'file': (b'\x00' * 23) + b'\x01',
         'thumbnail': (b'\x00' * 23) + b'\x02'
     }
@@ -337,6 +340,7 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
         """
         text_message = 0x01
         image_message = 0x02
+        video_message = 0x13
         file_message = 0x17
         delivery_receipt = 0x80
 
@@ -364,6 +368,7 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
             cls._message_classes = {
                 cls.Type.text_message: TextMessage,
                 cls.Type.image_message: ImageMessage,
+                cls.Type.video_message: VideoMessage,
                 cls.Type.file_message: FileMessage,
                 cls.Type.delivery_receipt: DeliveryReceipt,
             }
@@ -983,6 +988,201 @@ class ImageMessage(Message):
         return cls(connection, from_data=dict(parameters, **{
             'image': image,
             'mime_type': None,  # TODO: Guess mime type from bytes
+        }))
+
+
+# TODO: Update docstring (arguments)
+@aio_run_proxy_decorator
+class VideoMessage(Message):
+    """
+    A video message including a thumbnail.
+
+    If the connection passed to the constructor is in blocking mode, then all
+    methods on this class will be blocking too.
+
+    Arguments for a new message:
+        - `connection`: An instance of a connection.
+        - `id`: Threema ID of the recipient.
+        - `key`: The public key of the recipient. Will be fetched from
+           the server if not supplied.
+        - `key_file`: A file where the private key is stored in. Can
+          be used instead of passing the key directly.
+        - `duration`: The duration of the video in seconds.
+        - `video_path`: A file where the video is stored in.
+        - `thumbnail_path`: The path to a thumbnail of the file.
+
+    Arguments for an existing message:
+        - `payload`: The remaining byte sequence of a decrypted
+          message.
+    """
+    async_functions = {
+        'pack',
+        'unpack',
+    }
+    required_capabilities = {
+        ReceptionCapability.video
+    }
+    _formatter = '<H{}sI{}sI{}s'.format(
+        BLOB_ID_LENGTH, BLOB_ID_LENGTH, libnacl.crypto_box_SECRETKEYBYTES)
+
+    def __init__(
+            self, connection,
+            duration=0,
+            video=None, video_path=None,
+            thumbnail_content=None, thumbnail_path=None,
+            from_data=None, **kwargs
+    ):
+        super().__init__(connection, Message.Type.video_message,
+                         from_data=from_data, **kwargs)
+        if self._direction == self.Direction.outgoing:
+            path_param = video_path is not None
+            if sum((1 for param in (video, path_param) if param)) != 1:
+                raise ValueError(("Either 'video' or 'video_path' need to be specified"))
+            if sum((1 for param in (thumbnail_content, thumbnail_path) if param)) != 1:
+                raise ValueError(("Either 'thumbnail_content' or 'thumbnail_path' "
+                                  "need to be specified"))
+            self.duration = duration
+            self._video = video
+            self._video_path = video_path
+            self._thumbnail_content = thumbnail_content
+            self._thumbnail_path = thumbnail_path
+        else:
+            self.duration = from_data['duration']
+            self._video = from_data['video']
+            self._video_path = None
+            self._thumbnail_content = from_data['thumbnail_content']
+            self._thumbnail_path = None
+
+    @property
+    def video(self):
+        """
+        Return the video as :class:`bytes`.
+
+        Raises :exc:`OSError` in case the video could not be read from
+        the specified path.
+        """
+        self._read_video()
+        return self._video
+
+    @property
+    def thumbnail_content(self):
+        """
+        Return the thumbnails' content as :class:`bytes`.
+
+        Raises :exc:`OSError` in case the thumbnails' content could
+        not be read from the specified path.
+        """
+        self._read_thumbnail()
+        return self._thumbnail_content
+
+    def _read_video(self):
+        """
+        Read and store the video as :class:`bytes`.
+
+        Raises :exc:`OSError` in case the video could not be read from
+        the specified path.
+        """
+        if self._video is None:
+            with open(self._video_path, mode='rb') as file:
+                # Read content
+                self._video = file.read()
+
+    def _read_thumbnail(self):
+        """
+        Read and store the thumbnails' content as :class:`bytes`.
+
+        Raises :exc:`OSError` in case the thumbnails' content could
+        not be read from the specified path.
+        """
+        if self._thumbnail_content is None and self._thumbnail_path is not None:
+            with open(self._thumbnail_path, mode='rb') as file:
+                # Read content
+                self._thumbnail_content = file.read()
+
+    @asyncio.coroutine
+    def pack(self, writer):
+        # Check capabilities of recipient
+        yield from self.check_capabilities(self.required_capabilities)
+
+        # Generate a symmetric key for the video and its thumbnail
+        key, _ = Key.generate_secret_key()
+
+        # Encrypt and upload video by a newly generated symmetric key
+        _, video_data = _sk_encrypt(key, self.video, nonce=self.nonce['video'])
+        video_id = yield from self._connection.upload(video_data)
+        try:
+            video_id = binascii.unhexlify(video_id)
+        except binascii.Error as exc:
+            raise MessageError('Could not convert hex-encoded blob id') from exc
+
+        # Encrypt and upload thumbnail
+        _, thumbnail_data = _sk_encrypt(
+            key, self.thumbnail_content, nonce=self.nonce['thumbnail'])
+        thumbnail_id = yield from self._connection.upload(thumbnail_data)
+        try:
+            thumbnail_id = binascii.unhexlify(thumbnail_id)
+        except binascii.Error as exc:
+            raise MessageError('Could not convert hex-encoded blob id') from exc
+
+        # Pack duration, blob ids, video/thumbnail length and the secret key
+        try:
+            data = struct.pack(
+                self._formatter,
+                self.duration,
+                video_id,
+                len(self.video),
+                thumbnail_id,
+                len(self.thumbnail_content),
+                key,
+            )
+        except struct.error as exc:
+            raise MessageError(
+                'Could not pack duration, blob ids, length and key') from exc
+
+        # Add data
+        writer.writeexactly(data)
+
+    @classmethod
+    @asyncio.coroutine
+    def unpack(cls, connection, parameters, key_pair, reader):
+        # Unpack duration, blob ids, video/thumbnail length and the secret key
+        length = struct.calcsize(cls._formatter)
+        try:
+            data = struct.unpack(cls._formatter, reader.readexactly(length))
+        except struct.error as exc:
+            raise MessageError(
+                'Could not unpack duration, blob ids, length and key') from exc
+        duration, video_id, video_length, thumbnail_id, thumbnail_length, key = data
+
+        # Download and decrypt thumbnail
+        thumbnail_id = binascii.hexlify(thumbnail_id).decode('ascii')
+        response = yield from connection.download(thumbnail_id)
+        thumbnail_data = yield from response.read()
+        thumbnail_content = _sk_decrypt(key, cls.nonce['thumbnail'], thumbnail_data)
+
+        # Validate thumbnail content length
+        length = len(thumbnail_content)
+        if length != thumbnail_length:
+            message = 'Thumbnail content length does not match (expected: {}, got: {})'
+            raise MessageError(message.format(thumbnail_length, length))
+
+        # Download and decrypt video
+        video_id = binascii.hexlify(video_id).decode('ascii')
+        response = yield from connection.download(video_id)
+        video_data = yield from response.read()
+        video = _sk_decrypt(key, cls.nonce['file'], video_data)
+
+        # Validate video content length
+        length = len(video)
+        if length != video_length:
+            message = 'Video content length does not match (expected: {}, got: {})'
+            raise MessageError(message.format(video_length, length))
+
+        # Return instance
+        return cls(connection, from_data=dict(parameters, **{
+            'duration': duration,
+            'video': video,
+            'thumbnail_content': thumbnail_content,
         }))
 
 
