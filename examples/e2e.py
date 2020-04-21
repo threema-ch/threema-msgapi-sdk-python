@@ -15,8 +15,8 @@ from threema.gateway import (
 from threema.gateway.e2e import (
     FileMessage,
     ImageMessage,
-    VideoMessage,
     TextMessage,
+    VideoMessage,
 )
 
 
