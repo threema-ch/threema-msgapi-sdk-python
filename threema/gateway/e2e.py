@@ -955,7 +955,7 @@ class ImageMessage(Message):
 
         # Pack blob id, image length and image nonce
         try:
-            data = struct.pack(self._formatter, blob_id, len(image_data), image_nonce)
+            data = struct.pack(self._formatter, blob_id, len(self.image), image_nonce)
         except struct.error as exc:
             raise MessageError('Could not pack blob id, length and nonce') from exc
 

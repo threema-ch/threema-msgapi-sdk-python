@@ -11,9 +11,9 @@ import click
 import logbook
 import logbook.more
 
+from threema.gateway import Connection
 from threema.gateway import __version__ as _version
 from threema.gateway import (
-    Connection,
     e2e,
     feature_level,
     simple,

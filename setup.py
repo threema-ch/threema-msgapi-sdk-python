@@ -38,14 +38,14 @@ if py_version < (3, 4):
 # Note: These are just tools that aren't required, so a version range
 #       is not necessary here.
 tests_require = [
-    'pytest>=3.1.3',
-    'pytest-asyncio>=0.6.0',
-    'pytest-cov>=2.5.1',
-    'flake8>=3.3.0',
-    'isort>=4.2.15',
+    'pytest>=3.1.3,<4',
+    'pytest-asyncio>=0.6.0,<0.10',
+    'pytest-cov>=2.5.1,<3',
+    'flake8==3.7.9',
+    'isort==4.3.21',
     'collective.checkdocs>=0.2',
     'Pygments>=2.2.0',  # required by checkdocs
-    'mypy>=0.521',
+    'mypy==0.770',
 ]
 
 setup(
@@ -58,7 +58,7 @@ setup(
         'logbook>=1.1.0,<2',
         'libnacl>=1.5.2,<2',
         'click>=6.7,<7',  # doesn't seem to follow semantic versioning
-        'aiohttp>=2.2.5,<3',
+        'aiohttp>=2.3.10,<3',
         'wrapt>=1.10.10,<2',
     ],
     tests_require=tests_require,

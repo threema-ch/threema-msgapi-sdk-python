@@ -15,16 +15,15 @@ before_cache:
 language: python
 matrix:
   include:
-  - python: "3.4"
-    env: EVENT_LOOP=asyncio
   - python: "3.5"
     env: EVENT_LOOP=asyncio
-  - python: "3.5"
-    env: EVENT_LOOP=uvloop
-    before_script: "pip install .[uvloop]"
   - python: "3.6"
     env: EVENT_LOOP=asyncio
-  - python: "3.6"
+  - python: "3.7"
+    env: EVENT_LOOP=asyncio
+  - python: "3.8"
+    env: EVENT_LOOP=asyncio
+  - python: "3.8"
     env: EVENT_LOOP=uvloop
     before_script: "pip install .[uvloop]"
 
@@ -39,11 +38,8 @@ install:
 
 # Run flake8, isort, check docs & tests
 script:
-  - >
-    if [[ "$TRAVIS_PYTHON_VERSION" != "pypy3" ]]; then
-      flake8 . || travis_terminate 1;
-      isort -rc -c . || (isort -rc -df . && return 1) || travis_terminate 1;
-    fi
+  - flake8 .
+  - isort -rc -c . || (isort -rc -df . && return 1)
   - python setup.py checkdocs
   - py.test --cov-config .coveragerc --cov=threema.gateway --loop=$EVENT_LOOP
   - mypy .

@@ -69,3 +69,9 @@ gen
 
 # Vim
 *.swp
+
+# VS Code
+.vscode/
+
+# MyPy Cache
+.mypy_cache/
