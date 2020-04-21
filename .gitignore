@@ -69,3 +69,6 @@ gen
 
 # Vim
 *.swp
+
+# VS Code
+.vscode/
