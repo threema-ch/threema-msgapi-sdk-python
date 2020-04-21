@@ -8,11 +8,9 @@ import click
 import logbook
 import logbook.more
 
+from threema.gateway import Connection
 from threema.gateway import __version__ as _version
-from threema.gateway import (
-    Connection,
-    util,
-)
+from threema.gateway import util
 from threema.gateway.e2e import AbstractCallback
 from threema.gateway.key import Key
 

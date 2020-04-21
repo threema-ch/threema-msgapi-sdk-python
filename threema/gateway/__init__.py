@@ -23,9 +23,7 @@ The mode that you can use depends on the way your account was set up.
 """
 import itertools
 
-# noinspection PyUnresolvedReferences
 from ._gateway import *  # noqa
-# noinspection PyUnresolvedReferences
 from .exception import *  # noqa
 
 __author__ = 'Lennart Grahl <lennart.grahl@gmail.com>'
