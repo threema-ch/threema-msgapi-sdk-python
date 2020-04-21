@@ -30,7 +30,7 @@ from .exception import *  # noqa
 
 __author__ = 'Lennart Grahl <lennart.grahl@gmail.com>'
 __status__ = 'Production'
-__version__ = '3.0.6'
+__version__ = '3.1.0'
 feature_level = 3
 
 __all__ = tuple(itertools.chain(

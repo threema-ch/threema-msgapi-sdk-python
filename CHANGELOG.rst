@@ -1,8 +1,11 @@
 Changelog
 *********
 
-`Unreleased`_ (YYYY-MM-DD)
---------------------------
+`3.1.0`_ (2020-04-21)
+---------------------
+
+- Add video message
+- Fix slightly off calculation of image byte length
 
 `3.0.6`_ (2017-09-22)
 ---------------------
@@ -25,7 +28,7 @@ Changelog
 
 - Initial publication on PyPI
 
-.. _Unreleased: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.0.6...HEAD
+.. _3.1.0: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.0.6...v3.1.0
 .. _3.0.6: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.0.5...v3.0.6
 .. _3.0.5: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.0.4...v3.0.5
 .. _3.0.4: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.0.2...v3.0.4
