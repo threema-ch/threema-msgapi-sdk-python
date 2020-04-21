@@ -45,7 +45,7 @@ class CallbackError(GatewayError):
         self.reason = reason
 
     def __str__(self):
-        return '[{]}] {]'.format(self.status, self.reason)
+        return '[{}] {}'.format(self.status, self.reason)
 
 
 class GatewayServerError(GatewayError):
