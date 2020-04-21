@@ -72,3 +72,6 @@ gen
 
 # VS Code
 .vscode/
+
+# MyPy Cache
+.mypy_cache/
