@@ -23,6 +23,8 @@ The mode that you can use depends on the way your account was set up.
 """
 import itertools
 
+from . import _gateway
+from . import exception as _exception
 from ._gateway import *  # noqa
 from .exception import *  # noqa
 
@@ -34,6 +36,6 @@ feature_level = 3
 __all__ = tuple(itertools.chain(
     ('feature_level',),
     ('bin', 'simple', 'e2e', 'key', 'util'),
-    _gateway.__all__,  # noqa
-    exception.__all__,  # noqa
+    _gateway.__all__,
+    _exception.__all__,
 ))
