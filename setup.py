@@ -54,7 +54,7 @@ setup(
     packages=find_packages(),
     namespace_packages=['threema'],
     install_requires=[
-        'py_lru_cache>=0.1.4,<0.2',
+        'memoization==0.2.3',  # we're using private APIs
         'logbook>=1.1.0,<2',
         'libnacl>=1.5.2,<2',
         'click>=6.7,<7',  # doesn't seem to follow semantic versioning

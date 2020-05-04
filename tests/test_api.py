@@ -59,7 +59,6 @@ class TestLookupPublicKey:
     @pytest.mark.asyncio
     async def test_cache_expiration(self, connection, server):
         connection.get_public_key.cache_clear()
-        connection.get_public_key.cache.expiration = 0.05
         for _ in range(10):
             await connection.get_public_key('ECHOECHO')
         cache_info = connection.get_public_key.cache_info()

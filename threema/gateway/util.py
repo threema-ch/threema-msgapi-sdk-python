@@ -14,9 +14,10 @@ import libnacl
 import logbook
 import logbook.compat
 import logbook.more
-# noinspection PyPackageRequirements
-import lru
 import wrapt
+
+from memoization.caching.general import values_with_ttl
+from memoization.caching.general import keys_order_dependent
 
 from .key import Key
 
@@ -307,136 +308,72 @@ class ViewIOWriter(io.RawIOBase):
         return self.write(bytes_or_view)
 
 
-class _HashedSeq(list):
+_CacheInfo = collections.namedtuple('_CacheInfo', ('hits', 'misses', 'length', 'ttl'))
+
+
+def async_ttl_cache(ttl):
     """
-    This class guarantees that hash() will be called no more than once
-    per element.  This is important because the lru_cache() will hash
-    the key multiple times on a cache miss.
-    """
-    __slots__ = 'hash_value'
+    Cache with expiration (TTL) for asyncio coroutines.
 
-    # noinspection PyMissingConstructor
-    def __init__(self, tuple_):
-        self[:] = tuple_
-        self.hash_value = hash(tuple_)
-
-    def __hash__(self):
-        return self.hash_value
-
-
-# noinspection PyPep8Naming
-_CacheInfo = collections.namedtuple(
-    'CacheInfo', ('hits', 'misses', 'maxsize', 'currsize'))
-
-
-def _make_key(
-    args, kwargs, typed,
-    fast_types={int, str, frozenset, type(None)},
-    kwargs_mark=(object(),),
-):
-    """
-    Make a cache key from optionally typed positional and keyword arguments
-
-    The key is constructed in a way that is flat as possible rather than
-    as a nested structure that would take more memory.
-
-    If there is only a single argument and its data type is known to cache
-    its hash value, then that argument is returned without a wrapper.  This
-    saves space and improves lookup speed.
-    """
-    key = args
-    if kwargs:
-        sorted_items = sorted(kwargs.items())
-        key += kwargs_mark
-        for item in sorted_items:
-            key += item
-    else:
-        sorted_items = []
-    if typed:
-        key += tuple(type(v) for v in args)
-        if kwargs:
-            key += tuple(type(v) for k, v in sorted_items)
-    elif len(key) == 1 and type(key[0]) in fast_types:
-        return key[0]
-    return _HashedSeq(key)
-
-
-class _LRUCacheDict(lru.LRUCacheDict):
-    def __init__(self, *args, **kwargs):
-        self.hits = self.misses = 0
-        super().__init__(*args, **kwargs)
-
-    def __len__(self):
-        return self.size()
-
-    def info(self):
-        """Report cache statistics"""
-        return _CacheInfo(self.hits, self.misses, self.max_size, len(self))
-
-    def __getitem__(self, key):
-        try:
-            item = super().__getitem__(key)
-        except KeyError:
-            self.misses += 1
-            raise
-        else:
-            self.hits += 1
-            return item
-
-    def clear(self):
-        super().clear()
-        self.hits = self.misses = 0
-
-
-def async_lru_cache(maxsize=1024, expiration=15 * 60, typed=False):
-    """
-    Least-recently-used cache decorator for asyncio coroutines.
-
-    If *maxsize* is set to None, the LRU features are disabled and the
-    cache can grow without bound.
-
-    If *expiration* is set, cached values will be cleared after
-    *expiration* seconds.
-
-    If *typed* is True, arguments of different types will be cached
-    separately. For example, f(3.0) and f(3) will be treated as distinct
-    calls with distinct results.
-
-    Arguments to the cached function must be hashable.
+    If *ttl* is set, cached values will be cleared after
+    *ttl* seconds.
 
     View the cache statistics named tuple (hits, misses, maxsize,
     currsize) with f.cache_info().  Clear the cache and statistics
     with f.cache_clear(). Access the underlying function with
     f.__wrapped__.
-
-    See:  http://en.wikipedia.org/wiki/Cache_algorithms#Least_Recently_Used
     """
+    def _decorator(func):
+        # Ensure it is a coroutine
+        if not asyncio.iscoroutinefunction(func):
+            raise ValueError('Function is not a coroutine')
 
-    def decorating_function(func):
-        cache = _LRUCacheDict(max_size=maxsize, expiration=expiration)
+        # Cache storage
+        cache = {}
+        hits = misses = 0
 
-        async def wrapper(*args, **kwargs):
-            # Make cached key
-            key = _make_key(args, kwargs, typed)
+        async def _wrapper(*args, **kwargs):
+            nonlocal hits, misses
+            key = keys_order_dependent.make_key(args, kwargs)
 
-            # Get from cache
+            # Attempt to get value from cache
             try:
-                return cache[key]
+                node = cache[key]
             except KeyError:
                 pass
+            else:
+                # Hit. Return cached value if still valid.
+                if values_with_ttl.is_cache_value_valid(node):
+                    hits += 1
+                    return values_with_ttl.retrieve_result_from_cache_value(node)
 
-            # Miss, retrieve from coroutine
+            # Miss. Get value from function and insert into cache.
+            misses += 1
             value = await func(*args, **kwargs)
-            cache[key] = value
+            cache[key] = values_with_ttl.make_cache_value(value, ttl)
             return value
 
-        wrapper.cache = cache
-        wrapper.cache_info = cache.info
-        wrapper.cache_clear = cache.clear
+        def cache_clear():
+            """
+            Clear the cache and its statistics information
+            """
+            nonlocal hits, misses
+            cache.clear()
+            hits = misses = 0
 
-        return functools.update_wrapper(wrapper, func)
+        def cache_info():
+            """
+            Show statistics information
+            """
+            return _CacheInfo(hits, misses, len(cache), ttl)
 
-    return decorating_function
+        # Expose functions to wrapper
+        _wrapper.cache_clear = cache_clear
+        _wrapper.cache_info = cache_info
+        _wrapper._cache = cache
+
+        return functools.update_wrapper(_wrapper, func)
+    return _decorator
 
 
 def aio_run(coroutine, loop=None, close_after_complete=False):
