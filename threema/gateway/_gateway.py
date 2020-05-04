@@ -21,7 +21,7 @@ from .key import Key
 from .util import (
     AioRunMixin,
     aio_run_proxy_decorator,
-    async_lru_cache,
+    async_ttl_cache,
     raise_server_error,
 )
 
@@ -173,7 +173,7 @@ class Connection(AioRunMixin):
                 self.key = file.readline().strip()
         self._key_file = key_file
 
-    @async_lru_cache(maxsize=1024, expiration=60 * 60)
+    @async_ttl_cache(ttl=60 * 60)
     async def get_public_key(self, id_):
         """
         Get the public key of a Threema ID.
@@ -191,7 +191,7 @@ class Connection(AioRunMixin):
         else:
             await raise_server_error(response, KeyServerError)
 
-    @async_lru_cache(maxsize=1024, expiration=60 * 60)
+    @async_ttl_cache(ttl=60 * 60)
     async def get_id(self, **mode):
         """
         Get a user's Threema ID.
@@ -231,7 +231,7 @@ class Connection(AioRunMixin):
         else:
             await raise_server_error(response, IDServerError)
 
-    @async_lru_cache(maxsize=128, expiration=5 * 60)
+    @async_ttl_cache(ttl=5 * 60)
     async def get_reception_capabilities(self, id_):
         """
         Get the reception capabilities of a Threema ID.
