@@ -15,8 +15,7 @@ from threema.gateway import (
 from threema.gateway.key import Key
 
 
-@asyncio.coroutine
-def main():
+async def main():
     connection = Connection(
         identity='*YOUR_GATEWAY_THREEMA_ID',
         secret='YOUR_GATEWAY_THREEMA_ID_SECRET',
@@ -24,16 +23,16 @@ def main():
     )
     try:
         with connection:
-            print((yield from connection.get_credits()))
-            print((yield from connection.get_id(phone='41791234567')))
+            print(await connection.get_credits())
+            print(await connection.get_id(phone='41791234567'))
             hash_ = 'ad398f4d7ebe63c6550a486cc6e07f9baa09bd9d8b3d8cb9d9be106d35a7fdbc'
-            print((yield from connection.get_id(phone_hash=hash_)))
-            print((yield from connection.get_id(email='test@threema.ch')))
+            print(await connection.get_id(phone_hash=hash_))
+            print(await connection.get_id(email='test@threema.ch'))
             hash_ = '1ea093239cc5f0e1b6ec81b866265b921f26dc4033025410063309f4d1a8ee2c'
-            print((yield from connection.get_id(email_hash=hash_)))
-            key = (yield from connection.get_public_key('ECHOECHO'))
+            print(await connection.get_id(email_hash=hash_))
+            key = await connection.get_public_key('ECHOECHO')
             print(Key.encode(key))
-            print((yield from connection.get_reception_capabilities('ECHOECHO')))
+            print(await connection.get_reception_capabilities('ECHOECHO'))
     except GatewayError as exc:
         print('Error:', exc)
 

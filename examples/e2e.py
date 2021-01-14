@@ -20,8 +20,7 @@ from threema.gateway.e2e import (
 )
 
 
-@asyncio.coroutine
-def send(connection):
+async def send(connection):
     """
     Send a message to a specific Threema ID.
 
@@ -34,11 +33,10 @@ def send(connection):
         to_id='ECHOECHO',
         text='私はガラスを食べられます。それは私を傷つけません。'
     )
-    return (yield from message.send())
+    return await message.send()
 
 
-@asyncio.coroutine
-def send_cached_key(connection):
+async def send_cached_key(connection):
     """
     Send a message to a specific Threema ID with an already cached
     public key of that recipient.
@@ -49,11 +47,10 @@ def send_cached_key(connection):
         key='public:4a6a1b34dcef15d43cb74de2fd36091be99fbbaf126d099d47d83d919712c72b',
         text='私はガラスを食べられます。それは私を傷つけません。'
     )
-    return (yield from message.send())
+    return await message.send()
 
 
-@asyncio.coroutine
-def send_cached_key_file(connection):
+async def send_cached_key_file(connection):
     """
     Send a message to a specific Threema ID with an already cached
     public key (stored in a file) of that recipient.
@@ -64,11 +61,10 @@ def send_cached_key_file(connection):
         key_file='ECHOECHO.txt',
         text='私はガラスを食べられます。それは私を傷つけません。'
     )
-    return (yield from message.send())
+    return await message.send()
 
 
-@asyncio.coroutine
-def send_image(connection):
+async def send_image(connection):
     """
     Send an image to a specific Threema ID.
 
@@ -81,11 +77,10 @@ def send_image(connection):
         to_id='ECHOECHO',
         image_path='res/threema.jpg'
     )
-    return (yield from message.send())
+    return await message.send()
 
 
-@asyncio.coroutine
-def send_video(connection):
+async def send_video(connection):
     """
     Send a video including a thumbnail to a specific Threema ID.
 
@@ -100,11 +95,10 @@ def send_video(connection):
         video_path='res/threema.mp4',
         thumbnail_path='res/threema.jpg',
     )
-    return (yield from message.send())
+    return await message.send()
 
 
-@asyncio.coroutine
-def send_file(connection):
+async def send_file(connection):
     """
     Send a file to a specific Threema ID.
 
@@ -117,11 +111,10 @@ def send_file(connection):
         to_id='ECHOECHO',
         file_path='res/some_file.zip'
     )
-    return (yield from message.send())
+    return await message.send()
 
 
-@asyncio.coroutine
-def send_file_with_thumbnail(connection):
+async def send_file_with_thumbnail(connection):
     """
     Send a file to a specific Threema ID including a thumbnail.
 
@@ -135,11 +128,10 @@ def send_file_with_thumbnail(connection):
         file_path='res/some_file.zip',
         thumbnail_path='res/some_file_thumb.png'
     )
-    return (yield from message.send())
+    return await message.send()
 
 
-@asyncio.coroutine
-def main():
+async def main():
     connection = Connection(
         identity='*YOUR_GATEWAY_THREEMA_ID',
         secret='YOUR_GATEWAY_THREEMA_ID_SECRET',
@@ -148,13 +140,13 @@ def main():
     )
     try:
         with connection:
-            yield from send(connection)
-            yield from send_cached_key(connection)
-            yield from send_cached_key_file(connection)
-            yield from send_image(connection)
-            yield from send_video(connection)
-            yield from send_file(connection)
-            yield from send_file_with_thumbnail(connection)
+            await send(connection)
+            await send_cached_key(connection)
+            await send_cached_key_file(connection)
+            await send_image(connection)
+            await send_video(connection)
+            await send_file(connection)
+            await send_file_with_thumbnail(connection)
     except GatewayError as exc:
         print('Error:', exc)
 

@@ -30,9 +30,9 @@ os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 long_description = '\n\n'.join((read('README.rst'), read('CHANGELOG.rst')))
 
 # Check python version
-py_version = sys.version_info[:2]
-if py_version < (3, 4):
-    raise Exception("threema.gateway requires Python >= 3.4")
+py_version = sys.version_info[:3]
+if py_version < (3, 6, 1):
+    raise Exception("threema.gateway requires Python >= 3.6.1")
 
 # Test requirements
 # Note: These are just tools that aren't required, so a version range

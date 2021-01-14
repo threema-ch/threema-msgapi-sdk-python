@@ -134,8 +134,7 @@ def read_key_or_key_file(key, expected_type):
     return Key.decode(key, expected_type)
 
 
-@asyncio.coroutine
-def raise_server_error(response, error):
+async def raise_server_error(response, error):
     """
     Raise a :class:`GatewayServerError` exception from a
     HTTP response. Releases the response before raising.
@@ -148,7 +147,7 @@ def raise_server_error(response, error):
     Always raises :class:`GatewayServerError`.
     """
     status = response.status
-    yield from response.release()
+    await response.release()
     raise error(status)
 
 
@@ -416,8 +415,7 @@ def async_lru_cache(maxsize=1024, expiration=15 * 60, typed=False):
     def decorating_function(func):
         cache = _LRUCacheDict(max_size=maxsize, expiration=expiration)
 
-        @asyncio.coroutine
-        def wrapper(*args, **kwargs):
+        async def wrapper(*args, **kwargs):
             # Make cached key
             key = _make_key(args, kwargs, typed)
 
@@ -428,7 +426,7 @@ def async_lru_cache(maxsize=1024, expiration=15 * 60, typed=False):
                 pass
 
             # Miss, retrieve from coroutine
-            value = yield from func(*args, **kwargs)
+            value = await func(*args, **kwargs)
             cache[key] = value
             return value
 
@@ -458,9 +456,8 @@ def aio_run(coroutine, loop=None, close_after_complete=False):
     Example:
 
     .. code-block::
-        @asyncio.coroutine
-        def coroutine(timeout):
-            yield from asyncio.sleep(timeout)
+        async def coroutine(timeout):
+            await asyncio.sleep(timeout)
             return True
 
         # Call coroutine in a blocking manner
@@ -506,14 +503,13 @@ def aio_run_decorator(loop=None, close_after_complete=False):
     Example:
 
     .. code-block::
-        @asyncio.coroutine
-        def coroutine(timeout):
-            yield from asyncio.sleep(timeout)
+        async def coroutine(timeout):
+            await asyncio.sleep(timeout)
             return True
 
         @aio_run_decorator()
-        def helper(*args, **kwargs):
-            return coroutine(*args, **kwargs)
+        async def helper(*args, **kwargs):
+            return await coroutine(*args, **kwargs)
 
         # Call coroutine in a blocking manner
         result = helper(timeout=1.0)

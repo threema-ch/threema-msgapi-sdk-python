@@ -27,8 +27,7 @@ _logging_levels = {
 
 
 class Callback(AbstractCallback):
-    @asyncio.coroutine
-    def receive_message(self, message):
+    async def receive_message(self, message):
         click.echo('Got message ({}): {}'.format(repr(message), message))
 
 
@@ -94,12 +93,11 @@ def version():
     click.echo('Version: {}'.format(_version))
 
 
-@asyncio.coroutine
-def close_server(server_and_callback):
+async def close_server(server_and_callback):
     server, callback = server_and_callback
     server.close()
-    yield from server.wait_closed()
-    yield from callback.close()
+    await server.wait_closed()
+    await callback.close()
 
 
 @cli.command(short_help='Start the callback server.', help="""
@@ -133,7 +131,7 @@ def serve(**arguments):
 
     # Create server
     coroutine = callback.create_server(certfile, keyfile=keyfile, host=host, port=port)
-    server = yield from coroutine
+    server = await coroutine
     return server, callback
 
 

@@ -161,9 +161,8 @@ class Connection(AioRunMixin):
                 self.key = file.readline().strip()
         self._key_file = key_file
 
-    @asyncio.coroutine
     @async_lru_cache(maxsize=1024, expiration=60 * 60)
-    def get_public_key(self, id_):
+    async def get_public_key(self, id_):
         """
         Get the public key of a Threema ID.
 
@@ -172,17 +171,16 @@ class Connection(AioRunMixin):
 
         Return a :class:`libnacl.public.PublicKey` for a Threema ID.
         """
-        response = yield from self._get(self.urls['get_public_key'].format(id_))
+        response = await self._get(self.urls['get_public_key'].format(id_))
         if response.status == 200:
-            text = yield from response.text()
+            text = await response.text()
             key = libnacl.encode.hex_decode(text)
             return libnacl.public.PublicKey(key)
         else:
-            yield from raise_server_error(response, KeyServerError)
+            await raise_server_error(response, KeyServerError)
 
-    @asyncio.coroutine
     @async_lru_cache(maxsize=1024, expiration=60 * 60)
-    def get_id(self, **mode):
+    async def get_id(self, **mode):
         """
         Get a user's Threema ID.
 
@@ -215,15 +213,14 @@ class Connection(AioRunMixin):
 
         # Select mode and start request
         mode, value = mode.popitem()
-        response = yield from self._get(self.urls[modes[mode]].format(value))
+        response = await self._get(self.urls[modes[mode]].format(value))
         if response.status == 200:
-            return (yield from response.text())
+            return await response.text()
         else:
-            yield from raise_server_error(response, IDServerError)
+            await raise_server_error(response, IDServerError)
 
-    @asyncio.coroutine
     @async_lru_cache(maxsize=128, expiration=5 * 60)
-    def get_reception_capabilities(self, id_):
+    async def get_reception_capabilities(self, id_):
         """
         Get the reception capabilities of a Threema ID.
 
@@ -233,32 +230,30 @@ class Connection(AioRunMixin):
         Return a set containing items from :class:`ReceptionCapability`.
         """
         get_coroutine = self._get(self.urls['get_reception_capabilities'].format(id_))
-        response = yield from get_coroutine
+        response = await get_coroutine
         if response.status == 200:
             try:
-                text = yield from response.text()
+                text = await response.text()
                 return {ReceptionCapability(capability.strip())
                         for capability in text.split(',')}
             except ValueError as exc:
-                yield from response.release()
+                await response.release()
                 raise ReceptionCapabilitiesError('Invalid reception capability') from exc
         else:
-            yield from raise_server_error(response, ReceptionCapabilitiesServerError)
+            await raise_server_error(response, ReceptionCapabilitiesServerError)
 
-    @asyncio.coroutine
-    def get_credits(self):
+    async def get_credits(self):
         """
         Return the number of credits left on the account.
         """
-        response = yield from self._get(self.urls['get_credits'])
+        response = await self._get(self.urls['get_credits'])
         if response.status == 200:
-            text = yield from response.text()
+            text = await response.text()
             return int(text)
         else:
-            yield from raise_server_error(response, CreditsServerError)
+            await raise_server_error(response, CreditsServerError)
 
-    @asyncio.coroutine
-    def send_simple(self, **data):
+    async def send_simple(self, **data):
         """
         Send a message by using the simple mode.
 
@@ -267,10 +262,9 @@ class Connection(AioRunMixin):
 
         Return the ID of the message.
         """
-        return (yield from self._send(self.urls['send_simple'], data))
+        return await self._send(self.urls['send_simple'], data)
 
-    @asyncio.coroutine
-    def send_e2e(self, **data):
+    async def send_e2e(self, **data):
         """
         Send a message by using the end-to-end mode.
 
@@ -279,10 +273,9 @@ class Connection(AioRunMixin):
 
         Return the ID of the message.
         """
-        return (yield from self._send(self.urls['send_e2e'], data))
+        return await self._send(self.urls['send_e2e'], data)
 
-    @asyncio.coroutine
-    def upload(self, data):
+    async def upload(self, data):
         """
         Upload a blob.
 
@@ -291,10 +284,9 @@ class Connection(AioRunMixin):
 
         Return the hex-encoded ID of the blob.
         """
-        return (yield from self._upload(self.urls['upload_blob'], data))
+        return await self._upload(self.urls['upload_blob'], data)
 
-    @asyncio.coroutine
-    def download(self, blob_id):
+    async def download(self, blob_id):
         """
         Download a blob.
 
@@ -303,14 +295,13 @@ class Connection(AioRunMixin):
 
         Return a :class:`asyncio.StreamReader` instance.
         """
-        response = yield from self._get(self.urls['download_blob'].format(blob_id))
+        response = await self._get(self.urls['download_blob'].format(blob_id))
         if response.status == 200:
             return response.content
         else:
-            yield from raise_server_error(response, BlobServerError)
+            await raise_server_error(response, BlobServerError)
 
-    @asyncio.coroutine
-    def _get(self, *args, **kwargs):
+    async def _get(self, *args, **kwargs):
         """
         Wrapper for :func:`requests.get` that injects the connection's
         Threema ID and its secret.
@@ -320,10 +311,9 @@ class Connection(AioRunMixin):
         kwargs.setdefault('params', {})
         kwargs['params'].setdefault('from', self.id)
         kwargs['params'].setdefault('secret', self.secret)
-        return (yield from self._session.get(*args, **kwargs))
+        return await self._session.get(*args, **kwargs)
 
-    @asyncio.coroutine
-    def _send(self, url, data):
+    async def _send(self, url, data):
         """
         Send a message.
 
@@ -338,14 +328,13 @@ class Connection(AioRunMixin):
         data.setdefault('secret', self.secret)
 
         # Send message
-        response = yield from self._session.post(url, data=data)
+        response = await self._session.post(url, data=data)
         if response.status == 200:
-            return (yield from response.text())
+            return await response.text()
         else:
-            yield from raise_server_error(response, MessageServerError)
+            await raise_server_error(response, MessageServerError)
 
-    @asyncio.coroutine
-    def _upload(self, url, data):
+    async def _upload(self, url, data):
         """
         Upload a blob.
 
@@ -361,8 +350,8 @@ class Connection(AioRunMixin):
         files = {'blob': data}
 
         # Send message
-        response = yield from self._session.post(url, params=params, data=files)
+        response = await self._session.post(url, params=params, data=files)
         if response.status == 200:
-            return (yield from response.text())
+            return await response.text()
         else:
-            yield from raise_server_error(response, BlobServerError)
+            await raise_server_error(response, BlobServerError)

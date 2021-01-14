@@ -20,10 +20,6 @@ import threema.gateway
 from threema.gateway import e2e
 from threema.gateway.key import Key
 
-# Turn off deprecation warnings for now
-# TODO: Port code to async/await
-os.environ['PYTHONWARNINGS'] = 'ignore'
-
 _res_path = os.path.normpath(os.path.join(
     os.path.abspath(__file__), os.pardir, 'res'))
 
@@ -34,17 +30,14 @@ class RawMessage(e2e.Message):
         self.nonce = nonce
         self.message = message
 
-    @asyncio.coroutine
-    def pack(self, writer):
+    async def pack(self, writer):
         raise NotImplementedError
 
     @classmethod
-    @asyncio.coroutine
-    def unpack(cls, connection, parameters, key_pair, reader):
+    async def unpack(cls, connection, parameters, key_pair, reader):
         raise NotImplementedError
 
-    @asyncio.coroutine
-    def send(self, get_data_only=False):
+    async def send(self, get_data_only=False):
         """
         Send the raw message
 
@@ -54,11 +47,11 @@ class RawMessage(e2e.Message):
         if get_data_only:
             return self.nonce, self.message
         else:
-            return (yield from self._connection.send_e2e(**{
+            return await self._connection.send_e2e(**{
                 'to': self.to_id,
                 'nonce': binascii.hexlify(self.nonce).decode(),
                 'box': binascii.hexlify(self.message).decode()
-            }))
+            })
 
 
 class Server:
@@ -87,8 +80,7 @@ class Server:
         router.add_route('GET', '/blobs/{blob_id}', self.download_blob)
         self.router = router
 
-    @asyncio.coroutine
-    def pubkeys(self, request):
+    async def pubkeys(self, request):
         key = request.match_info['key']
         from_, secret = request.query['from'], request.query['secret']
         if (from_, secret) not in pytest.msgapi.api_identities:
@@ -101,8 +93,7 @@ class Server:
             return web.Response(body=self.mocking_key)
         return web.Response(status=404)
 
-    @asyncio.coroutine
-    def lookup_phone(self, request):
+    async def lookup_phone(self, request):
         phone = request.match_info['phone']
         from_, secret = request.query['from'], request.query['secret']
         if (from_, secret) not in pytest.msgapi.api_identities:
@@ -113,8 +104,7 @@ class Server:
             return web.Response(body=b'ECHOECHO')
         return web.Response(status=404)
 
-    @asyncio.coroutine
-    def lookup_phone_hash(self, request):
+    async def lookup_phone_hash(self, request):
         phone_hash = request.match_info['phone_hash']
         from_, secret = request.query['from'], request.query['secret']
         hash_ = '98b05f6eda7a878f6f016bdcdc9db6eb61a6b190e814ff787142115af144214c'
@@ -129,8 +119,7 @@ class Server:
             return web.Response(body=b'ECHOECHO')
         return web.Response(status=404)
 
-    @asyncio.coroutine
-    def lookup_email(self, request):
+    async def lookup_email(self, request):
         email = request.match_info['email']
         from_, secret = request.query['from'], request.query['secret']
         if (from_, secret) not in pytest.msgapi.api_identities:
@@ -139,8 +128,7 @@ class Server:
             return web.Response(body=b'ECHOECHO')
         return web.Response(status=404)
 
-    @asyncio.coroutine
-    def lookup_email_hash(self, request):
+    async def lookup_email_hash(self, request):
         email_hash = request.match_info['email_hash']
         from_, secret = request.query['from'], request.query['secret']
         hash_ = '45a13d422b40f81936a9987245d3f6d9064c90607273af4f578246b4484669e2'
@@ -155,8 +143,7 @@ class Server:
             return web.Response(body=b'ECHOECHO')
         return web.Response(status=404)
 
-    @asyncio.coroutine
-    def capabilities(self, request):
+    async def capabilities(self, request):
         id_ = request.match_info['id']
         from_, secret = request.query['from'], request.query['secret']
         if (from_, secret) not in pytest.msgapi.api_identities:
@@ -167,16 +154,14 @@ class Server:
             return web.Response(body=b'text,image,video,file')
         return web.Response(status=404)
 
-    @asyncio.coroutine
-    def credits(self, request):
+    async def credits(self, request):
         from_, secret = request.query['from'], request.query['secret']
         if (from_, secret) not in pytest.msgapi.api_identities:
             return web.Response(status=401)
         return web.Response(body=b'100')
 
-    @asyncio.coroutine
-    def send_simple(self, request):
-        post = (yield from request.post())
+    async def send_simple(self, request):
+        post = await request.post()
 
         # Check API identity
         if (post['from'], post['secret']) not in pytest.msgapi.api_identities:
@@ -202,9 +187,8 @@ class Server:
             return web.Response(status=413)
         return web.Response(body=b'0' * 16)
 
-    @asyncio.coroutine
-    def send_e2e(self, request):
-        post = (yield from request.post())
+    async def send_e2e(self, request):
+        post = await request.post()
 
         # Check API identity
         if (post['from'], post['secret']) not in pytest.msgapi.api_identities:
@@ -226,10 +210,9 @@ class Server:
             return web.Response(status=413)
         return web.Response(body=b'1' * 16)
 
-    @asyncio.coroutine
-    def upload_blob(self, request):
+    async def upload_blob(self, request):
         try:
-            data = (yield from request.post())
+            data = await request.post()
 
             # Check API identity
             api_identity = (request.query['from'], request.query['secret'])
@@ -261,8 +244,7 @@ class Server:
         self.latest_blob_ids.append(blob_id)
         return web.Response(body=blob_id.encode())
 
-    @asyncio.coroutine
-    def download_blob(self, request):
+    async def download_blob(self, request):
         blob_id = request.match_info['blob_id']
 
         # Check API identity
@@ -477,8 +459,7 @@ def blob_id(event_loop, connection, blob):
 
 @pytest.fixture(scope='module')
 def cli(api_server, api_server_port, event_loop):
-    @asyncio.coroutine
-    def call_cli(*args, input=None, timeout=3.0):
+    async def call_cli(*args, input=None, timeout=3.0):
         # Prepare environment
         env = os.environ.copy()
         env['THREEMA_TEST_API'] = str(api_server_port)
@@ -493,11 +474,11 @@ def cli(api_server, api_server_port, event_loop):
         create = asyncio.create_subprocess_exec(
             *parameters, env=env, stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
-        process = yield from create
+        process = await create
 
         # Wait for process to terminate
         coroutine = process.communicate(input=input)
-        output, _ = yield from asyncio.wait_for(coroutine, timeout, loop=event_loop)
+        output, _ = await asyncio.wait_for(coroutine, timeout, loop=event_loop)
 
         # Process output
         output = output.decode('utf-8')
@@ -557,9 +538,8 @@ class Callback(e2e.AbstractCallback):
         super().__init__(*args, **kwargs)
         self.queue = asyncio.Queue(loop=self.loop)
 
-    @asyncio.coroutine
-    def receive_message(self, message):
-        yield from self.queue.put(message)
+    async def receive_message(self, message):
+        await self.queue.put(message)
 
 
 @pytest.fixture(scope='module')
@@ -602,10 +582,9 @@ def callback_client(request, event_loop, callback_server):
 
 @pytest.fixture(scope='module')
 def callback_send(callback_client, callback_server_port, connection):
-    @asyncio.coroutine
-    def send(message):
+    async def send(message):
         # Get data from message
-        nonce, data = yield from message.send(get_data_only=True)
+        nonce, data = await message.send(get_data_only=True)
 
         # Create callback parameters
         params = {
@@ -628,16 +607,15 @@ def callback_send(callback_client, callback_server_port, connection):
         # Send message
         url = 'https://{}:{}/gateway_callback'.format(
             pytest.msgapi.ip, callback_server_port)
-        return (yield from callback_client.post(url, data=params))
+        return await callback_client.post(url, data=params)
 
     return send
 
 
 @pytest.fixture(scope='module')
 def callback_receive(event_loop, callback, callback_server):
-    @asyncio.coroutine
-    def receive(timeout=3.0):
+    async def receive(timeout=3.0):
         coroutine = asyncio.wait_for(callback.queue.get(), timeout, loop=event_loop)
-        return (yield from coroutine)
+        return await coroutine
 
     return receive

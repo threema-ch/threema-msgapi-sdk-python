@@ -179,27 +179,24 @@ class AbstractCallback(metaclass=abc.ABCMeta):
     def create_handler(self):
         return self.application.make_handler()
 
-    @asyncio.coroutine
-    def create_server(self, certfile, keyfile=None, host=None, port=443, **kwargs):
+    async def create_server(self, certfile, keyfile=None, host=None, port=443, **kwargs):
         # Create SSL context
         ssl_context = self.create_ssl_context(certfile, keyfile=keyfile)
         # Create server
         # noinspection PyArgumentList
-        server = yield from self.loop.create_server(
+        server = await self.loop.create_server(
             self.handler, host=host, port=port, ssl=ssl_context, **kwargs)
         return server
 
-    @asyncio.coroutine
-    def close(self, timeout=10.0):
+    async def close(self, timeout=10.0):
         # Stop handler and application
-        yield from self.application.shutdown()
-        yield from self.handler.shutdown(timeout=timeout)
-        yield from self.application.cleanup()
+        await self.application.shutdown()
+        await self.handler.shutdown(timeout=timeout)
+        await self.application.cleanup()
 
-    @asyncio.coroutine
-    def _handle_and_catch_error(self, request):
+    async def _handle_and_catch_error(self, request):
         try:
-            return (yield from self.handle_callback(request))
+            return await self.handle_callback(request)
         except CallbackError as exc:
             # TODO: Log
             # Note: For security reasons, we do not send the reason
@@ -209,9 +206,8 @@ class AbstractCallback(metaclass=abc.ABCMeta):
             raise
 
     # TODO: Raises?
-    @asyncio.coroutine
-    def handle_callback(self, request):
-        response = yield from request.post()
+    async def handle_callback(self, request):
+        response = await request.post()
 
         # Unpack fields
         try:
@@ -252,7 +248,7 @@ class AbstractCallback(metaclass=abc.ABCMeta):
 
         # Unpack message
         try:
-            message = yield from Message.receive(self.connection, {
+            message = await Message.receive(self.connection, {
                 'from_id': from_id,
                 'message_id': message_id,
                 'date': date,
@@ -262,7 +258,7 @@ class AbstractCallback(metaclass=abc.ABCMeta):
 
         # Pass message to handler
         try:
-            yield from self.receive_message(message)
+            await self.receive_message(message)
         except TypeError:
             # TODO: Log error that the inherited method 'receive_message' MUST
             #       be a coroutine.
@@ -292,9 +288,8 @@ class AbstractCallback(metaclass=abc.ABCMeta):
         if to_id != self.connection.id:
             raise CallbackError(400, 'IDs do not match')
 
-    @asyncio.coroutine
     @abc.abstractmethod
-    def receive_message(self, message):
+    async def receive_message(self, message):
         raise NotImplementedError
 
 
@@ -429,8 +424,7 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
 
     # TODO: Raises?
     @property
-    @asyncio.coroutine
-    def key(self):
+    async def key(self):
         """
         Get the public key of the recipient (outgoing messages) or the
         sender (incoming messages). Will be request from the server
@@ -440,7 +434,7 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
         decoded if required.
         """
         if self._key is None:
-            self._key = yield from self._connection.get_public_key(self.to_id)
+            self._key = await self._connection.get_public_key(self.to_id)
         return self._key
 
     @key.setter
@@ -466,8 +460,7 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
         self._key_file = key_file
 
     # TODO: Raises?
-    @asyncio.coroutine
-    def send(self, get_data_only=False):
+    async def send(self, get_data_only=False):
         """
         Send a message.
 
@@ -485,7 +478,7 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
             raise MessageError('Could not pack type') from exc
 
         # Get content data
-        yield from self.pack(writer)
+        await self.pack(writer)
 
         # Generate 0 < padding < 256
         padding_length = randint(1, 255)
@@ -493,21 +486,20 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
         writer.writeexactly(bytes([padding_length] * padding_length))
 
         # Encrypt message
-        nonce, data = yield from self.encrypt(writer.getvalue())
+        nonce, data = await self.encrypt(writer.getvalue())
         if get_data_only:
             return nonce, data
 
         # Send message
-        return (yield from self._connection.send_e2e(**{
+        return await self._connection.send_e2e(**{
             'to': self.to_id,
             'nonce': binascii.hexlify(nonce).decode('ascii'),
             'box': binascii.hexlify(data).decode('ascii')
-        }))
+        })
 
     # TODO: Raises?
     @classmethod
-    @asyncio.coroutine
-    def receive(cls, connection, parameters, nonce, data):
+    async def receive(cls, connection, parameters, nonce, data):
         """
         Return a :class:`Message` instance from an encrypted message.
 
@@ -529,7 +521,7 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
             - :exc:`MessageError` in case the message is invalid.
         """
         # Decrypt message
-        key_pair = yield from cls.get_decrypt_key_pair(connection, parameters)
+        key_pair = await cls.get_decrypt_key_pair(connection, parameters)
         data = cls.decrypt(nonce, data, key_pair)
 
         # Unpack type and padding length
@@ -550,11 +542,10 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
         reader = ViewIOReader(data[1:-padding_length])
 
         # Unpack message
-        return (yield from class_.unpack(connection, parameters, key_pair, reader))
+        return await class_.unpack(connection, parameters, key_pair, reader)
 
-    @asyncio.coroutine
     @abc.abstractmethod
-    def pack(self, writer):
+    async def pack(self, writer):
         """
         Pack payload data.
 
@@ -568,9 +559,8 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @classmethod
-    @asyncio.coroutine
     @abc.abstractmethod
-    def unpack(cls, connection, parameters, key_pair, reader):
+    async def unpack(cls, connection, parameters, key_pair, reader):
         """
         Return a :class:`Message` instance from raw payload data.
 
@@ -593,8 +583,7 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     # TODO: Raises?
-    @asyncio.coroutine
-    def check_capabilities(self, required_capabilities):
+    async def check_capabilities(self, required_capabilities):
         """
         Test for capabilities of a recipient.
 
@@ -607,27 +596,25 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
         """
         # Check capabilities of a recipient
         capabilities_coroutine = self._connection.get_reception_capabilities(self.to_id)
-        recipient_capabilities = yield from capabilities_coroutine
+        recipient_capabilities = await capabilities_coroutine
         if not required_capabilities <= recipient_capabilities:
             missing_capabilities = required_capabilities - recipient_capabilities
             raise MissingCapabilityError(missing_capabilities)
 
     # TODO: Raises?
     @property
-    @asyncio.coroutine
-    def get_encrypt_key_pair(self):
+    async def get_encrypt_key_pair(self):
         """
         Return a tuple containing our private key and the public key of
         the recipient.
         """
         private = self._connection.key
-        public = yield from self.key
+        public = await self.key
         return private, public
 
     # TODO: Raises?
     @classmethod
-    @asyncio.coroutine
-    def get_decrypt_key_pair(cls, connection, parameters):
+    async def get_decrypt_key_pair(cls, connection, parameters):
         """
         Return a tuple containing our private key and the public key of
         the sender.
@@ -638,11 +625,10 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
               :method:`Message.unpack`.
         """
         private = connection.key
-        public = yield from connection.get_public_key(parameters['from_id'])
+        public = await connection.get_public_key(parameters['from_id'])
         return private, public
 
-    @asyncio.coroutine
-    def encrypt(self, data, key_pair=None, nonce=None):
+    async def encrypt(self, data, key_pair=None, nonce=None):
         """
         Encrypt data.
 
@@ -659,7 +645,7 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
         """
         # Key pair specified?
         if key_pair is None:
-            key_pair = yield from self.get_encrypt_key_pair
+            key_pair = await self.get_encrypt_key_pair
 
         # Encrypt
         try:
@@ -742,8 +728,7 @@ class DeliveryReceipt(Message):
         ids = (binascii.hexlify(id_).decode('ascii') for id_ in self.message_ids)
         return 'Delivery receipt({}): {}'.format(self.receipt_type.name, ', '.join(ids))
 
-    @asyncio.coroutine
-    def pack(self, writer):
+    async def pack(self, writer):
         # Pack content
         try:
             writer.writeexactly(struct.pack('<B', self.receipt_type.value))
@@ -753,8 +738,7 @@ class DeliveryReceipt(Message):
             writer.writeexactly(message_id)
 
     @classmethod
-    @asyncio.coroutine
-    def unpack(cls, connection, parameters, key_pair, reader):
+    async def unpack(cls, connection, parameters, key_pair, reader):
         # Check length
         length = len(reader)
         if length < 9 or (length - 1) % 8 != 0:
@@ -822,8 +806,7 @@ class TextMessage(Message):
     def __str__(self):
         return self.text
 
-    @asyncio.coroutine
-    def pack(self, writer):
+    async def pack(self, writer):
         # Encode text
         try:
             text = self.text.encode('utf-8')
@@ -834,8 +817,7 @@ class TextMessage(Message):
         writer.writeexactly(text)
 
     @classmethod
-    @asyncio.coroutine
-    def unpack(cls, connection, parameters, key_pair, reader):
+    async def unpack(cls, connection, parameters, key_pair, reader):
         # Get text
         text = bytes(reader.readexactly(len(reader)))
 
@@ -945,14 +927,13 @@ class ImageMessage(Message):
                 raise UnsupportedMimeTypeError(mime_type)
             self._mime_type = mime_type
 
-    @asyncio.coroutine
-    def pack(self, writer):
+    async def pack(self, writer):
         # Check capabilities of recipient
-        yield from self.check_capabilities(self.required_capabilities)
+        await self.check_capabilities(self.required_capabilities)
 
         # Encrypt and upload image
-        image_nonce, image_data = yield from self.encrypt(self.image)
-        blob_id = yield from self._connection.upload(image_data)
+        image_nonce, image_data = await self.encrypt(self.image)
+        blob_id = await self._connection.upload(image_data)
         try:
             blob_id = binascii.unhexlify(blob_id)
         except binascii.Error as exc:
@@ -968,8 +949,7 @@ class ImageMessage(Message):
         writer.writeexactly(data)
 
     @classmethod
-    @asyncio.coroutine
-    def unpack(cls, connection, parameters, key_pair, reader):
+    async def unpack(cls, connection, parameters, key_pair, reader):
         # Unpack blob id, image length and image nonce
         length = struct.calcsize(cls._formatter)
         try:
@@ -980,8 +960,8 @@ class ImageMessage(Message):
 
         # Download and decrypt image
         blob_id = binascii.hexlify(blob_id).decode('ascii')
-        response = yield from connection.download(blob_id)
-        image_data = yield from response.read()
+        response = await connection.download(blob_id)
+        image_data = await response.read()
         image = cls.decrypt(image_nonce, image_data, key_pair)
 
         # Return instance
@@ -1099,17 +1079,16 @@ class VideoMessage(Message):
                 # Read content
                 self._thumbnail_content = file.read()
 
-    @asyncio.coroutine
-    def pack(self, writer):
+    async def pack(self, writer):
         # Check capabilities of recipient
-        yield from self.check_capabilities(self.required_capabilities)
+        await self.check_capabilities(self.required_capabilities)
 
         # Generate a symmetric key for the video and its thumbnail
         key, _ = Key.generate_secret_key()
 
         # Encrypt and upload video by a newly generated symmetric key
         _, video_data = _sk_encrypt(key, self.video, nonce=self.nonce['video'])
-        video_id = yield from self._connection.upload(video_data)
+        video_id = await self._connection.upload(video_data)
         try:
             video_id = binascii.unhexlify(video_id)
         except binascii.Error as exc:
@@ -1118,7 +1097,7 @@ class VideoMessage(Message):
         # Encrypt and upload thumbnail
         _, thumbnail_data = _sk_encrypt(
             key, self.thumbnail_content, nonce=self.nonce['thumbnail'])
-        thumbnail_id = yield from self._connection.upload(thumbnail_data)
+        thumbnail_id = await self._connection.upload(thumbnail_data)
         try:
             thumbnail_id = binascii.unhexlify(thumbnail_id)
         except binascii.Error as exc:
@@ -1143,8 +1122,7 @@ class VideoMessage(Message):
         writer.writeexactly(data)
 
     @classmethod
-    @asyncio.coroutine
-    def unpack(cls, connection, parameters, key_pair, reader):
+    async def unpack(cls, connection, parameters, key_pair, reader):
         # Unpack duration, blob ids, video/thumbnail length and the secret key
         length = struct.calcsize(cls._formatter)
         try:
@@ -1156,8 +1134,8 @@ class VideoMessage(Message):
 
         # Download and decrypt thumbnail
         thumbnail_id = binascii.hexlify(thumbnail_id).decode('ascii')
-        response = yield from connection.download(thumbnail_id)
-        thumbnail_data = yield from response.read()
+        response = await connection.download(thumbnail_id)
+        thumbnail_data = await response.read()
         thumbnail_content = _sk_decrypt(key, cls.nonce['thumbnail'], thumbnail_data)
 
         # Validate thumbnail content length
@@ -1168,8 +1146,8 @@ class VideoMessage(Message):
 
         # Download and decrypt video
         video_id = binascii.hexlify(video_id).decode('ascii')
-        response = yield from connection.download(video_id)
-        video_data = yield from response.read()
+        response = await connection.download(video_id)
+        video_data = await response.read()
         video = _sk_decrypt(key, cls.nonce['file'], video_data)
 
         # Validate video content length
@@ -1310,15 +1288,14 @@ class FileMessage(Message):
                 # Read content
                 self._thumbnail_content = file.read()
 
-    @asyncio.coroutine
-    def pack(self, writer):
+    async def pack(self, writer):
         # Check capabilities of recipient
-        yield from self.check_capabilities(self.required_capabilities)
+        await self.check_capabilities(self.required_capabilities)
 
         # Encrypt and upload file by a newly generated symmetric key
         key, hex_key = Key.generate_secret_key()
         _, file_data = _sk_encrypt(key, self.file_content, nonce=self.nonce['file'])
-        file_id = yield from self._connection.upload(file_data)
+        file_id = await self._connection.upload(file_data)
 
         # Build JSON
         if self._file_path is not None:
@@ -1339,7 +1316,7 @@ class FileMessage(Message):
         if thumbnail_content is not None:
             _, thumbnail_data = _sk_encrypt(
                 key, thumbnail_content, nonce=self.nonce['thumbnail'])
-            thumbnail_id = yield from self._connection.upload(thumbnail_data)
+            thumbnail_id = await self._connection.upload(thumbnail_data)
             # Update JSON
             content['t'] = thumbnail_id
 
@@ -1353,8 +1330,7 @@ class FileMessage(Message):
         writer.writeexactly(content)
 
     @classmethod
-    @asyncio.coroutine
-    def unpack(cls, connection, parameters, key_pair, reader):
+    async def unpack(cls, connection, parameters, key_pair, reader):
         # Get payload
         try:
             content = bytes(reader.readexactly(len(reader))).decode('ascii')
@@ -1384,15 +1360,15 @@ class FileMessage(Message):
 
         # Download and decrypt thumbnail (if any)
         if thumbnail_id is not None:
-            response = yield from connection.download(thumbnail_id)
-            thumbnail_data = yield from response.read()
+            response = await connection.download(thumbnail_id)
+            thumbnail_data = await response.read()
             thumbnail_content = _sk_decrypt(key, cls.nonce['thumbnail'], thumbnail_data)
         else:
             thumbnail_content = None
 
         # Download and decrypt file
-        response = yield from connection.download(file_id)
-        file_data = yield from response.read()
+        response = await connection.download(file_id)
+        file_data = await response.read()
         file_content = _sk_decrypt(key, cls.nonce['file'], file_data)
 
         # Validate file content length

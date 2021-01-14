@@ -1,7 +1,6 @@
 """
 The command line interface for the Threema gateway service.
 """
-import asyncio
 import binascii
 import os
 import re
@@ -53,8 +52,7 @@ class _MockConnection(AioRunMixin):
         self._public_key = public_key
         self.id = identity
 
-    @asyncio.coroutine
-    def get_public_key(self, _):
+    async def get_public_key(self, _):
         return self._public_key
 
 
@@ -114,7 +112,7 @@ and then the encrypted box (hex).
 @click.argument('private_key')
 @click.argument('public_key')
 @util.aio_run_decorator()
-def encrypt(private_key, public_key):
+async def encrypt(private_key, public_key):
     # Get key instances
     private_key = util.read_key_or_key_file(private_key, Key.Type.private)
     public_key = util.read_key_or_key_file(public_key, Key.Type.public)
@@ -125,7 +123,7 @@ def encrypt(private_key, public_key):
     # Print nonce and message as hex
     connection = _MockConnection(private_key, public_key)
     message = e2e.TextMessage(connection, text=text, to_id='')
-    nonce, message = yield from message.send(get_data_only=True)
+    nonce, message = await message.send(get_data_only=True)
     click.echo()
     click.echo(binascii.hexlify(nonce))
     click.echo(binascii.hexlify(message))
@@ -140,7 +138,7 @@ Prints the decrypted text message to standard output.
 @click.argument('public_key')
 @click.argument('nonce')
 @util.aio_run_decorator()
-def decrypt(private_key, public_key, nonce):
+async def decrypt(private_key, public_key, nonce):
     # Get key instances
     private_key = util.read_key_or_key_file(private_key, Key.Type.private)
     public_key = util.read_key_or_key_file(public_key, Key.Type.public)
@@ -155,7 +153,7 @@ def decrypt(private_key, public_key, nonce):
     # Unpack message
     connection = _MockConnection(private_key, public_key)
     parameters = {'from_id': '', 'message_id': '', 'date': ''}
-    message = yield from e2e.Message.receive(connection, parameters, nonce, message)
+    message = await e2e.Message.receive(connection, parameters, nonce, message)
 
     # Ensure that this is a text message
     if message.type is not e2e.Message.Type.text_message:
@@ -232,7 +230,7 @@ Prints the message ID on success.
 @click.argument('secret')
 @click.pass_context
 @util.aio_run_decorator()
-def send_simple(ctx, **arguments):
+async def send_simple(ctx, **arguments):
     # Read message from stdin
     text = click.get_text_stream('stdin').read().strip()
 
@@ -247,7 +245,7 @@ def send_simple(ctx, **arguments):
 
         # Send message
         click.echo()
-        click.echo((yield from message.send()))
+        click.echo(await message.send())
 
 
 @cli.command(short_help='Send a text message using end-to-end mode.', help="""
@@ -264,7 +262,7 @@ The public key of the recipient. Will be fetched automatically if not provided.
 """)
 @click.pass_context
 @util.aio_run_decorator()
-def send_e2e(ctx, **arguments):
+async def send_e2e(ctx, **arguments):
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
     if arguments['public_key'] is not None:
@@ -294,7 +292,7 @@ def send_e2e(ctx, **arguments):
 
         # Send message
         click.echo()
-        click.echo((yield from message.send()))
+        click.echo(await message.send())
 
 
 @cli.command(short_help='Send an image using end-to-end mode.', help="""
@@ -313,7 +311,7 @@ The public key of the recipient. Will be fetched automatically if not provided.
 """)
 @click.pass_context
 @util.aio_run_decorator()
-def send_image(ctx, **arguments):
+async def send_image(ctx, **arguments):
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
     if arguments['public_key'] is not None:
@@ -339,7 +337,7 @@ def send_image(ctx, **arguments):
         )
 
         # Send message
-        click.echo((yield from message.send()))
+        click.echo(await message.send())
 
 
 @cli.command(short_help='Send a video using end-to-end mode.', help="""
@@ -363,7 +361,7 @@ Duration of the video in seconds. Defaults to 0.
 """, default=0)
 @click.pass_context
 @util.aio_run_decorator()
-def send_video(ctx, **arguments):
+async def send_video(ctx, **arguments):
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
     if arguments['public_key'] is not None:
@@ -391,7 +389,7 @@ def send_video(ctx, **arguments):
         )
 
         # Send message
-        click.echo((yield from message.send()))
+        click.echo(await message.send())
 
 
 @cli.command(short_help='Send a file using end-to-end mode.', help="""
@@ -413,7 +411,7 @@ The relative or absolute path to a thumbnail.
 """)
 @click.pass_context
 @util.aio_run_decorator()
-def send_file(ctx, **arguments):
+async def send_file(ctx, **arguments):
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
     if arguments['public_key'] is not None:
@@ -440,7 +438,7 @@ def send_file(ctx, **arguments):
         )
 
         # Send message
-        click.echo((yield from message.send()))
+        click.echo(await message.send())
 
 
 @cli.command(short_help='Lookup a Threema ID or the public key.', help="""
@@ -455,7 +453,7 @@ FROM is the API identity and SECRET is the API secret.
 @click.option('-i', '--id', help='A Threema ID.')
 @click.pass_context
 @util.aio_run_decorator()
-def lookup(ctx, **arguments):
+async def lookup(ctx, **arguments):
     modes = ['email', 'phone', 'id']
     mode = {key: value for key, value in arguments.items()
             if key in modes and value is not None}
@@ -470,10 +468,10 @@ def lookup(ctx, **arguments):
     with connection:
         # Do lookup
         if 'id' in mode:
-            public_key = yield from connection.get_public_key(arguments['id'])
+            public_key = await connection.get_public_key(arguments['id'])
             click.echo(Key.encode(public_key))
         else:
-            click.echo((yield from connection.get_id(**mode)))
+            click.echo(await connection.get_id(**mode))
 
 
 @cli.command(short_help='Lookup the reception capabilities of a Threema ID', help="""
@@ -486,12 +484,12 @@ Prints a set of capabilities in alphabetical order on success.
 @click.argument('id')
 @click.pass_context
 @util.aio_run_decorator()
-def capabilities(ctx, **arguments):
+async def capabilities(ctx, **arguments):
     # Create connection
     with Connection(arguments['from'], arguments['secret'], **ctx.obj) as connection:
         # Lookup and format returned capabilities
         coroutine = connection.get_reception_capabilities(arguments['id'])
-        capabilities_ = yield from coroutine
+        capabilities_ = await coroutine
         click.echo(', '.join(sorted(capability.value for capability in capabilities_)))
 
 
@@ -504,11 +502,11 @@ FROM is the API identity and SECRET is the API secret.
 @click.argument('secret')
 @click.pass_context
 @util.aio_run_decorator()
-def credits(ctx, **arguments):
+async def credits(ctx, **arguments):
     # Create connection
     with Connection(arguments['from'], arguments['secret'], **ctx.obj) as connection:
         # Get and print credits
-        click.echo((yield from connection.get_credits()))
+        click.echo(await connection.get_credits())
 
 
 def main():
