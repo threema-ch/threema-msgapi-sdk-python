@@ -36,9 +36,8 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
         self._connection = connection.unwrap
         self.to_id = to_id
 
-    @asyncio.coroutine
     @abc.abstractmethod
-    def send(self):
+    async def send(self):
         """
         Send a message.
         """
@@ -69,8 +68,7 @@ class TextMessage(Message):
         self.email = email
         self.text = text
 
-    @asyncio.coroutine
-    def send(self):
+    async def send(self):
         """
         Send the created message.
 
@@ -95,4 +93,4 @@ class TextMessage(Message):
         # Send message
         data = {key: value for key, value in recipient.items() if value is not None}
         data['text'] = self.text
-        return (yield from self._connection.send_simple(**data))
+        return await self._connection.send_simple(**data)

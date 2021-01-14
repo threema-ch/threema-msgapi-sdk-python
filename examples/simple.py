@@ -15,8 +15,7 @@ from threema.gateway import (
 from threema.gateway.simple import TextMessage
 
 
-@asyncio.coroutine
-def send_via_id(connection):
+async def send_via_id(connection):
     """
     Send a message to a specific Threema ID.
     """
@@ -25,11 +24,10 @@ def send_via_id(connection):
         to_id='ECHOECHO',
         text='Hello from the world of Python!'
     )
-    return (yield from message.send())
+    return await message.send()
 
 
-@asyncio.coroutine
-def send_via_email(connection):
+async def send_via_email(connection):
     """
     Send a message via an email address.
     """
@@ -38,11 +36,10 @@ def send_via_email(connection):
         email='test@threema.ch',
         text='Hello from the world of Python!'
     )
-    return (yield from message.send())
+    return await message.send()
 
 
-@asyncio.coroutine
-def send_via_phone(connection):
+async def send_via_phone(connection):
     """
     Send a message via a phone number.
     """
@@ -51,11 +48,10 @@ def send_via_phone(connection):
         phone='41791234567',
         text='Hello from the world of Python!'
     )
-    return (yield from message.send())
+    return await message.send()
 
 
-@asyncio.coroutine
-def main():
+async def main():
     connection = Connection(
         identity='*YOUR_GATEWAY_THREEMA_ID',
         secret='YOUR_GATEWAY_THREEMA_ID_SECRET',
@@ -63,9 +59,9 @@ def main():
     )
     try:
         with connection:
-            yield from send_via_id(connection)
-            yield from send_via_email(connection)
-            yield from send_via_phone(connection)
+            await send_via_id(connection)
+            await send_via_email(connection)
+            await send_via_phone(connection)
     except GatewayError as exc:
         print('Error:', exc)
 

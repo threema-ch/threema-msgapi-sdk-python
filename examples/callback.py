@@ -12,13 +12,11 @@ from threema.gateway.e2e import AbstractCallback
 
 
 class Callback(AbstractCallback):
-    @asyncio.coroutine
-    def receive_message(self, message):
+    async def receive_message(self, message):
         print('Got message ({}): {}'.format(repr(message), message))
 
 
-@asyncio.coroutine
-def start():
+async def start():
     # Create connection instance
     connection = Connection(
         identity='*YOUR_GATEWAY_THREEMA_ID',
@@ -31,7 +29,7 @@ def start():
     callback = Callback(connection, route=route)
 
     # Start the callback server and listen on any interface at port 8443
-    server = yield from callback.create_server(
+    server = await callback.create_server(
         certfile='PATH_TO_SSL_PEM_CERTIFICATE_CHAIN',
         keyfile='PATH_TO_SSL_PRIVATE_KEY',
         port=8443
@@ -41,11 +39,10 @@ def start():
     return server, callback
 
 
-@asyncio.coroutine
-def stop(server, callback):
+async def stop(server, callback):
     server.close()
-    yield from server.wait_closed()
-    yield from callback.close()
+    await server.wait_closed()
+    await callback.close()
 
 
 if __name__ == '__main__':
