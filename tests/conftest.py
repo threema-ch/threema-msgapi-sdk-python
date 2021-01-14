@@ -14,7 +14,6 @@ from contextlib import closing
 import aiohttp
 import pytest
 from aiohttp import web
-from aiohttp.web_urldispatcher import UrlDispatcher
 
 import threema.gateway
 from threema.gateway import e2e
@@ -65,20 +64,19 @@ class Server:
         self.mocking_key = Key.derive_public(decoded_private_key).hex_pk()
         self.blobs = {}
         self.latest_blob_ids = []
-
-        router = UrlDispatcher()
-        router.add_route('GET', '/pubkeys/{key}', self.pubkeys)
-        router.add_route('GET', '/lookup/phone/{phone}', self.lookup_phone)
-        router.add_route('GET', '/lookup/phone_hash/{phone_hash}', self.lookup_phone_hash)
-        router.add_route('GET', '/lookup/email/{email}', self.lookup_email)
-        router.add_route('GET', '/lookup/email_hash/{email_hash}', self.lookup_email_hash)
-        router.add_route('GET', '/capabilities/{id}', self.capabilities)
-        router.add_route('GET', '/credits', self.credits)
-        router.add_route('POST', '/send_simple', self.send_simple)
-        router.add_route('POST', '/send_e2e', self.send_e2e)
-        router.add_route('POST', '/upload_blob', self.upload_blob)
-        router.add_route('GET', '/blobs/{blob_id}', self.download_blob)
-        self.router = router
+        self.routes = [
+            web.get('/pubkeys/{key}', self.pubkeys),
+            web.get('/lookup/phone/{phone}', self.lookup_phone),
+            web.get('/lookup/phone_hash/{phone_hash}', self.lookup_phone_hash),
+            web.get('/lookup/email/{email}', self.lookup_email),
+            web.get('/lookup/email_hash/{email_hash}', self.lookup_email_hash),
+            web.get('/capabilities/{id}', self.capabilities),
+            web.get('/credits', self.credits),
+            web.post('/send_simple', self.send_simple),
+            web.post('/send_e2e', self.send_e2e),
+            web.post('/upload_blob', self.upload_blob),
+            web.get('/blobs/{blob_id}', self.download_blob),
+        ]
 
     async def pubkeys(self, request):
         key = request.match_info['key']
@@ -229,7 +227,7 @@ class Server:
             return web.Response(status=500)
 
         # Generate ID
-        blob_id = hashlib.md5(blob).hexdigest()
+        blob_id = hashlib.sha256(blob).hexdigest()[:32]
 
         # Process
         if request.query['from'] == pytest.msgapi.nocredit_id:
@@ -363,20 +361,23 @@ def api_server_port():
 
 @pytest.fixture(scope='module')
 def api_server(request, event_loop, api_server_port, server):
-    port = api_server_port
-    app = web.Application(
-        loop=event_loop, router=server.router, client_max_size=100 * (2**20))
-    handler = app.make_handler()
-
-    # Set up server
-    coroutine = event_loop.create_server(handler, host=pytest.msgapi.ip, port=port)
-    server_ = event_loop.run_until_complete(coroutine)
+    async def start_server():
+        port = api_server_port
+        app = web.Application(client_max_size=100 * (2**20))
+        app.router.add_routes(server.routes)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, host=pytest.msgapi.ip, port=port, shutdown_timeout=1.0)
+        await site.start()
+        return app, runner, site
+    app, runner, site = event_loop.run_until_complete(start_server())
 
     def fin():
-        event_loop.run_until_complete(handler.shutdown(1.0))
-        server_.close()
-        event_loop.run_until_complete(server_.wait_closed())
-        event_loop.run_until_complete(app.cleanup())
+        async def stop_server():
+            await site.stop()
+            await runner.cleanup()
+            await app.cleanup()
+        event_loop.run_until_complete(stop_server())
 
     request.addfinalizer(fin)
 
@@ -390,43 +391,47 @@ def mock_url(api_server_port):
 
 
 @pytest.fixture(scope='module')
-def connection(request, api_server, mock_url):
-    # Note: We're not doing anything with the server but obviously the
-    # server needs to be started to be able to connect
-    connection_ = threema.gateway.Connection(
-        identity=pytest.msgapi.id,
-        secret=pytest.msgapi.secret,
-        key=pytest.msgapi.private
-    )
+def connection(request, event_loop, api_server, mock_url):
+    async def create_connection():
+        # Note: We're not doing anything with the server but obviously the
+        # server needs to be started to be able to connect
+        return threema.gateway.Connection(
+            identity=pytest.msgapi.id,
+            secret=pytest.msgapi.secret,
+            key=pytest.msgapi.private,
+        )
+    connection_ = event_loop.run_until_complete(create_connection())
 
     # Patch URLs
     connection_.urls = {key: value.replace(pytest.msgapi.base_url, mock_url)
                         for key, value in connection_.urls.items()}
 
     def fin():
-        connection_.close()
+        event_loop.run_until_complete(connection_.close())
 
     request.addfinalizer(fin)
     return connection_
 
 
 @pytest.fixture(scope='module')
-def connection_blocking(request, api_server, mock_url):
-    # Note: We're not doing anything with the server but obviously the
-    # server needs to be started to be able to connect
-    connection_ = threema.gateway.Connection(
-        identity=pytest.msgapi.id,
-        secret=pytest.msgapi.secret,
-        key=pytest.msgapi.private,
-        blocking=True,
-    )
+def connection_blocking(request, event_loop, api_server, mock_url):
+    async def create_connection():
+        # Note: We're not doing anything with the server but obviously the
+        # server needs to be started to be able to connect
+        return threema.gateway.Connection(
+            identity=pytest.msgapi.id,
+            secret=pytest.msgapi.secret,
+            key=pytest.msgapi.private,
+            blocking=True,
+        )
+    connection_ = event_loop.run_until_complete(create_connection())
 
     # Patch URLs
     connection_.urls = {key: value.replace(pytest.msgapi.base_url, mock_url)
                         for key, value in connection_.urls.items()}
 
     def fin():
-        connection_.close()
+        event_loop.run_until_complete(connection_.close())
 
     request.addfinalizer(fin)
     return connection_
@@ -478,7 +483,7 @@ def cli(api_server, api_server_port, event_loop):
 
         # Wait for process to terminate
         coroutine = process.communicate(input=input)
-        output, _ = await asyncio.wait_for(coroutine, timeout, loop=event_loop)
+        output, _ = await asyncio.wait_for(coroutine, timeout)
 
         # Process output
         output = output.decode('utf-8')
@@ -536,7 +541,7 @@ def public_key_file(tmpdir_factory):
 class Callback(e2e.AbstractCallback):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.queue = asyncio.Queue(loop=self.loop)
+        self.queue = asyncio.Queue()
 
     async def receive_message(self, message):
         await self.queue.put(message)
@@ -544,7 +549,9 @@ class Callback(e2e.AbstractCallback):
 
 @pytest.fixture(scope='module')
 def callback(event_loop, connection):
-    return Callback(connection, loop=event_loop)
+    async def create_callback():
+        return Callback(connection)
+    return event_loop.run_until_complete(create_callback())
 
 
 @pytest.fixture(scope='module')
@@ -568,13 +575,16 @@ def callback_server(request, event_loop, callback, callback_server_port):
 
 @pytest.fixture(scope='module')
 def callback_client(request, event_loop, callback_server):
-    # Note: This is ONLY required because we are using a self-signed certificate
-    #       for test purposes.
-    connector = aiohttp.TCPConnector(verify_ssl=False)
-    session = aiohttp.ClientSession(connector=connector, loop=event_loop)
+    async def create_client():
+        # Note: This is ONLY required because we are using a self-signed certificate
+        #       for test purposes.
+        connector_ = aiohttp.TCPConnector(verify_ssl=False)
+        session_ = aiohttp.ClientSession(connector=connector_)
+        return connector_, session_
+    connector, session = event_loop.run_until_complete(create_client())
 
     def fin():
-        session.close()
+        event_loop.run_until_complete(session.close())
 
     request.addfinalizer(fin)
     return session
@@ -590,7 +600,7 @@ def callback_send(callback_client, callback_server_port, connection):
         params = {
             'from': connection.id,
             'to': message.to_id,
-            'messageId': hashlib.md5(message.to_id.encode('ascii')).hexdigest()[16:],
+            'messageId': hashlib.sha256(message.to_id.encode('ascii')).hexdigest()[16:],
             'date': str(time.time()),
             'nonce': binascii.hexlify(nonce).decode('ascii'),
             'box': binascii.hexlify(data).decode('ascii'),
@@ -615,7 +625,7 @@ def callback_send(callback_client, callback_server_port, connection):
 @pytest.fixture(scope='module')
 def callback_receive(event_loop, callback, callback_server):
     async def receive(timeout=3.0):
-        coroutine = asyncio.wait_for(callback.queue.get(), timeout, loop=event_loop)
+        coroutine = asyncio.wait_for(callback.queue.get(), timeout)
         return await coroutine
 
     return receive
