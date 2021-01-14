@@ -58,7 +58,7 @@ async def main():
         verify_fingerprint=True,
     )
     try:
-        with connection:
+        async with connection:
             await send_via_id(connection)
             await send_via_email(connection)
             await send_via_phone(connection)

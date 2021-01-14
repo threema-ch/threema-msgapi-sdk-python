@@ -139,7 +139,7 @@ async def main():
         verify_fingerprint=True,
     )
     try:
-        with connection:
+        async with connection:
             await send(connection)
             await send_cached_key(connection)
             await send_cached_key_file(connection)

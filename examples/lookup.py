@@ -22,7 +22,7 @@ async def main():
         verify_fingerprint=True,
     )
     try:
-        with connection:
+        async with connection:
             print(await connection.get_credits())
             print(await connection.get_id(phone='41791234567'))
             hash_ = 'ad398f4d7ebe63c6550a486cc6e07f9baa09bd9d8b3d8cb9d9be106d35a7fdbc'

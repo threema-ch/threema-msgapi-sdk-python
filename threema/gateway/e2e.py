@@ -20,7 +20,6 @@ import libnacl.encode
 import libnacl.public
 import libnacl.secret
 from aiohttp import web
-from aiohttp.web_urldispatcher import UrlDispatcher
 
 from . import ReceptionCapability
 from .exception import (
@@ -144,15 +143,14 @@ class AbstractCallback(metaclass=abc.ABCMeta):
     provided.
     """
 
-    def __init__(self, connection, loop=None, route='/gateway_callback'):
+    def __init__(self, connection, route='/gateway_callback', routes=None):
         self.connection = connection
-        # Note: I'm guessing here the secret must be ASCII
         self.encoded_secret = connection.secret.encode('ascii')
-        self.loop = asyncio.get_event_loop() if loop is None else loop
-        # Create router
-        self.router = self.create_router(route)
+
         # Create application
-        self.application = self.create_application(self.router, loop)
+        if routes is None:
+            routes = [web.post(route, self._handle_and_catch_error)]
+        self.application = self.create_application(routes)
         self.handler = self.create_handler()
         self.server = None
 
@@ -162,29 +160,30 @@ class AbstractCallback(metaclass=abc.ABCMeta):
         ssl_context.load_cert_chain(certfile=certfile, keyfile=keyfile)
         return ssl_context
 
-    def create_router(self, route):
-        self.route = route
-        router = UrlDispatcher()
-        router.add_route('POST', route, self._handle_and_catch_error)
-        return router
-
     # noinspection PyMethodMayBeStatic
-    def create_application(self, router, loop):
+    def create_application(self, routes):
         # A box can contain up to 4000 bytes, so this should be sufficient.
         # The remaining POST parameters aren't that big.
         # See: https://gateway.threema.ch/en/developer/api
         request_size_max = 8192
-        return web.Application(router=router, loop=loop, client_max_size=request_size_max)
+        app = web.Application(client_max_size=request_size_max)
+        app.router.add_routes(routes)
+        return app
 
     def create_handler(self):
         return self.application.make_handler()
 
-    async def create_server(self, certfile, keyfile=None, host=None, port=443, **kwargs):
+    async def create_server(
+        self, certfile,
+        keyfile=None, host=None, port=443, loop=None, **kwargs
+    ):
+        if loop is None:
+            loop = asyncio.get_event_loop()
         # Create SSL context
         ssl_context = self.create_ssl_context(certfile, keyfile=keyfile)
         # Create server
         # noinspection PyArgumentList
-        server = await self.loop.create_server(
+        server = await loop.create_server(
             self.handler, host=host, port=port, ssl=ssl_context, **kwargs)
         return server
 
@@ -193,6 +192,9 @@ class AbstractCallback(metaclass=abc.ABCMeta):
         await self.application.shutdown()
         await self.handler.shutdown(timeout=timeout)
         await self.application.cleanup()
+
+        # Stop connection session
+        await self.connection.close()
 
     async def _handle_and_catch_error(self, request):
         try:
@@ -257,12 +259,7 @@ class AbstractCallback(metaclass=abc.ABCMeta):
             raise CallbackError(400, str(exc)) from exc
 
         # Pass message to handler
-        try:
-            await self.receive_message(message)
-        except TypeError:
-            # TODO: Log error that the inherited method 'receive_message' MUST
-            #       be a coroutine.
-            raise
+        await self.receive_message(message)
 
         # Respond with 'OK'
         return web.Response(status=200)
@@ -699,9 +696,6 @@ class DeliveryReceipt(Message):
     class ReceiptType(enum.IntEnum):
         """
         Describes message receipt types.
-
-        .. warning:: `user_ack` is deprecated and will be removed with
-           the next major release. Use `user_acknowledge` instead.
         """
         received = 0x01
         read = 0x02

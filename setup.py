@@ -58,7 +58,7 @@ setup(
         'logbook>=1.1.0,<2',
         'libnacl>=1.5.2,<2',
         'click>=6.7,<7',  # doesn't seem to follow semantic versioning
-        'aiohttp>=2.3.10,<3',
+        'aiohttp>=3.7.3,<4',
         'wrapt>=1.10.10,<2',
     ],
     tests_require=tests_require,
