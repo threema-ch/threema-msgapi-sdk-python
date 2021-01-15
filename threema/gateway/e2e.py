@@ -691,15 +691,14 @@ class DeliveryReceipt(Message):
         'unpack',
     }
 
-    # TODO: Re-enable unique decorator and remove `user_ack` with next major version
-    # @enum.unique
+    @enum.unique
     class ReceiptType(enum.IntEnum):
         """
         Describes message receipt types.
         """
         received = 0x01
         read = 0x02
-        user_acknowledge = user_ack = 0x03
+        user_acknowledge = 0x03
         user_decline = 0x04
 
     def __init__(
