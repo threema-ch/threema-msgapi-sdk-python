@@ -1,6 +1,7 @@
 import asyncio
 import binascii
 import enum
+import ssl
 
 import aiohttp
 import libnacl.encode
@@ -24,6 +25,8 @@ from .util import (
     async_lru_cache,
     raise_server_error,
 )
+
+from aiohttp.helpers import BasicAuth
 
 __all__ = (
     'ReceptionCapability',
@@ -78,6 +81,9 @@ class Connection(AioRunMixin):
           fingerprint. (Recommended)
         - `blocking`: Whether to use a blocking API, without the need
           for an explicit event loop.
+        - `proxy`: HTTP proxy server (Optional)
+        - `proxy_auth`: HTTP proxy basic authentication (Optional)
+        - `ssl_context`: Optional SSL_Context
     """
     async_functions = {
         'get_public_key',
@@ -108,7 +114,7 @@ class Connection(AioRunMixin):
     def __init__(
             self, identity, secret,
             key=None, key_file=None,
-            fingerprint=None, verify_fingerprint=False, blocking=False
+            fingerprint=None, verify_fingerprint=False, blocking=False, proxy=None, proxy_auth=None,ssl_context=None
     ):
         super().__init__(blocking=blocking)
         if fingerprint is None and verify_fingerprint:
@@ -121,6 +127,12 @@ class Connection(AioRunMixin):
         self.secret = secret
         self.key = key
         self.key_file = key_file
+        self.proxy = proxy
+        if proxy_auth:
+            self.proxy_auth = BasicAuth(login=proxy_auth['proxy_username'],password=proxy_auth['proxy_password'])
+        else:
+            self.proxy_auth = None
+        self.ssl_context = ssl_context
 
     def __enter__(self):
         return self
@@ -320,6 +332,9 @@ class Connection(AioRunMixin):
         kwargs.setdefault('params', {})
         kwargs['params'].setdefault('from', self.id)
         kwargs['params'].setdefault('secret', self.secret)
+        kwargs['proxy'] = self.proxy
+        kwargs['proxy_auth'] = self.proxy_auth
+        kwargs['ssl_context'] = self.ssl_context
         return (yield from self._session.get(*args, **kwargs))
 
     @asyncio.coroutine
@@ -337,8 +352,14 @@ class Connection(AioRunMixin):
         data.setdefault('from', self.id)
         data.setdefault('secret', self.secret)
 
+        kwargs = {}
+        kwargs.setdefault('params', {})
+        kwargs['proxy'] = self.proxy
+        kwargs['proxy_auth'] = self.proxy_auth
+        kwargs['ssl_context'] = self.ssl_context
+
         # Send message
-        response = yield from self._session.post(url, data=data)
+        response = yield from self._session.post(url, data=data, **kwargs)
         if response.status == 200:
             return (yield from response.text())
         else:
