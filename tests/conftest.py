@@ -1,11 +1,13 @@
 import asyncio
 import asyncio.subprocess
 import binascii
+import collections
 import copy
 import hashlib
 import hmac
 import os
 import socket
+import ssl
 import subprocess
 import sys
 import time
@@ -301,7 +303,7 @@ def default_event_loop(request=None, config=None):
         config = request.config
     loop = config.getoption("--loop")
     if loop == 'uvloop':
-        import uvloop
+        import uvloop  # noqa
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     else:
         loop = 'asyncio'
@@ -538,19 +540,18 @@ def public_key_file(tmpdir_factory):
     return str(file)
 
 
-class Callback(e2e.AbstractCallback):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.queue = asyncio.Queue()
-
-    async def receive_message(self, message):
-        await self.queue.put(message)
+Callback = collections.namedtuple('Callback', ['queue', 'handle_message'])
 
 
 @pytest.fixture(scope='module')
 def callback(event_loop, connection):
     async def create_callback():
-        return Callback(connection)
+        queue = asyncio.Queue()
+
+        async def handle_message(message):
+            await queue.put(message)
+
+        return Callback(queue, handle_message)
     return event_loop.run_until_complete(create_callback())
 
 
@@ -560,15 +561,30 @@ def callback_server_port():
 
 
 @pytest.fixture(scope='module')
-def callback_server(request, event_loop, callback, callback_server_port):
-    cert_path = pytest.msgapi.cert_path
-    server_ = event_loop.run_until_complete(callback.create_server(
-        certfile=cert_path, host=pytest.msgapi.ip, port=callback_server_port))
+def callback_server(request, event_loop, connection, callback, callback_server_port):
+    async def start_callback_server():
+        app = e2e.create_application(connection)
+        e2e.add_callback_route(connection, app, callback.handle_message)
+        runner = web.AppRunner(app)
+        await runner.setup()
+
+        cert_path = pytest.msgapi.cert_path
+        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_context.load_cert_chain(certfile=cert_path)
+        site = web.TCPSite(
+            runner, host=pytest.msgapi.ip, port=callback_server_port,
+            ssl_context=ssl_context)
+        await site.start()
+
+        return app, runner, site
+    app, runner, site = event_loop.run_until_complete(start_callback_server())
 
     def fin():
-        server_.close()
-        event_loop.run_until_complete(server_.wait_closed())
-        event_loop.run_until_complete(callback.close())
+        async def stop_callback_server():
+            await site.stop()
+            await runner.cleanup()
+            await app.cleanup()
+        event_loop.run_until_complete(stop_callback_server())
 
     request.addfinalizer(fin)
 
@@ -578,7 +594,7 @@ def callback_client(request, event_loop, callback_server):
     async def create_client():
         # Note: This is ONLY required because we are using a self-signed certificate
         #       for test purposes.
-        connector_ = aiohttp.TCPConnector(verify_ssl=False)
+        connector_ = aiohttp.TCPConnector(ssl=False)
         session_ = aiohttp.ClientSession(connector=connector_)
         return connector_, session_
     connector, session = event_loop.run_until_complete(create_client())
