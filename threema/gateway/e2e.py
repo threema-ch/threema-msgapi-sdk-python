@@ -2,7 +2,6 @@
 Provides classes and functions for the end-to-end encryption mode.
 """
 import abc
-import asyncio
 import binascii
 import datetime
 import enum
@@ -11,7 +10,6 @@ import hmac
 import json
 import mimetypes
 import os
-import ssl
 import struct
 from typing import Tuple
 
@@ -37,10 +35,14 @@ from .util import (
     aio_run_proxy_decorator,
     randint,
 )
+import functools
 
 __all__ = (
     'BLOB_ID_LENGTH',
-    'AbstractCallback',
+    'MAX_HTTP_REQUEST_SIZE',
+    'handle_callback',
+    'create_application',
+    'add_callback_route',
     'Message',
     'DeliveryReceipt',
     'TextMessage',
@@ -50,6 +52,11 @@ __all__ = (
 )
 
 BLOB_ID_LENGTH = 16
+
+# A box can contain up to 4000 bytes, so this should be sufficient.
+# The remaining POST parameters aren't that big.
+# See: https://gateway.threema.ch/en/developer/api
+MAX_HTTP_REQUEST_SIZE = 8192
 
 
 def _pk_encrypt(key_pair: Tuple[Key, Key], data: bytes, nonce: bytes = None):
@@ -95,7 +102,6 @@ def _pk_decrypt(key_pair: Tuple[Key, Key], nonce: bytes, data: bytes):
     return box.decrypt(data, nonce=nonce)
 
 
-# TODO: Raises?
 def _sk_encrypt(key, data, nonce=None):
     """
     Encrypt data by using secret-key encryption.
@@ -118,7 +124,6 @@ def _sk_encrypt(key, data, nonce=None):
     return data[:nonce_length], data[nonce_length:]
 
 
-# TODO: Raises?
 def _sk_decrypt(key, nonce, data):
     """
     Decrypt data by using secret-key decryption.
@@ -135,80 +140,26 @@ def _sk_decrypt(key, nonce, data):
     return box.decrypt(data, nonce=nonce)
 
 
-# TODO: Add logging
-# TODO: Add docstrings
-class AbstractCallback(metaclass=abc.ABCMeta):
-    """
-    Raises :exc:`TypeError` in case no valid certificate has been
-    provided.
-    """
+def _validate_hmac(encoded_secret, expected_mac, response):
+    try:
+        message = ''.join((
+            response['from'],
+            response['to'],
+            response['messageId'],
+            response['date'],
+            response['nonce'],
+            response['box'],
+        )).encode('ascii')
+    except UnicodeError as exc:
+        raise CallbackError(400, 'Cannot concatenate HMAC message') from exc
+    hmac_ = hmac.new(encoded_secret, msg=message, digestmod=hashlib.sha256)
+    actual_mac = hmac_.hexdigest()
+    if not hmac.compare_digest(expected_mac, actual_mac):
+        raise CallbackError(400, 'MACs do not match')
 
-    def __init__(self, connection, route='/gateway_callback', routes=None):
-        self.connection = connection
-        self.encoded_secret = connection.secret.encode('ascii')
 
-        # Create application
-        if routes is None:
-            routes = [web.post(route, self._handle_and_catch_error)]
-        self.application = self.create_application(routes)
-        self.handler = self.create_handler()
-        self.server = None
-
-    # noinspection PyMethodMayBeStatic
-    def create_ssl_context(self, certfile, keyfile=None):
-        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        ssl_context.load_cert_chain(certfile=certfile, keyfile=keyfile)
-        return ssl_context
-
-    # noinspection PyMethodMayBeStatic
-    def create_application(self, routes):
-        # A box can contain up to 4000 bytes, so this should be sufficient.
-        # The remaining POST parameters aren't that big.
-        # See: https://gateway.threema.ch/en/developer/api
-        request_size_max = 8192
-        app = web.Application(client_max_size=request_size_max)
-        app.router.add_routes(routes)
-        return app
-
-    def create_handler(self):
-        return self.application.make_handler()
-
-    async def create_server(
-        self, certfile,
-        keyfile=None, host=None, port=443, loop=None, **kwargs
-    ):
-        if loop is None:
-            loop = asyncio.get_event_loop()
-        # Create SSL context
-        ssl_context = self.create_ssl_context(certfile, keyfile=keyfile)
-        # Create server
-        # noinspection PyArgumentList
-        server = await loop.create_server(
-            self.handler, host=host, port=port, ssl=ssl_context, **kwargs)
-        return server
-
-    async def close(self, timeout=10.0):
-        # Stop handler and application
-        await self.application.shutdown()
-        await self.handler.shutdown(timeout=timeout)
-        await self.application.cleanup()
-
-        # Stop connection session
-        await self.connection.close()
-
-    async def _handle_and_catch_error(self, request):
-        try:
-            return await self.handle_callback(request)
-        except CallbackError as exc:
-            # TODO: Log
-            # Note: For security reasons, we do not send the reason
-            return web.Response(status=exc.status)
-        except Exception:
-            # TODO: Log
-            raise
-
-    # TODO: Raises?
-    async def handle_callback(self, request):
+async def handle_callback(encoded_secret, connection, message_handler, request):
+    try:
         response = await request.post()
 
         # Unpack fields
@@ -223,9 +174,10 @@ class AbstractCallback(metaclass=abc.ABCMeta):
         except KeyError as exc:
             raise CallbackError(400, 'Could not unpack required fields') from exc
 
-        # Validate MAC and ID
-        self.validate_mac(mac, response)
-        self.validate_id(to_id)
+        # Validate HMAC and ID
+        _validate_hmac(encoded_secret, mac, response)
+        if to_id != connection.id:
+            raise CallbackError(400, 'IDs do not match')
 
         # Validate from id length
         if len(from_id) != 8:
@@ -250,7 +202,7 @@ class AbstractCallback(metaclass=abc.ABCMeta):
 
         # Unpack message
         try:
-            message = await Message.receive(self.connection, {
+            message = await Message.receive(connection, {
                 'from_id': from_id,
                 'message_id': message_id,
                 'date': date,
@@ -259,35 +211,29 @@ class AbstractCallback(metaclass=abc.ABCMeta):
             raise CallbackError(400, str(exc)) from exc
 
         # Pass message to handler
-        await self.receive_message(message)
+        await message_handler(message)
 
         # Respond with 'OK'
         return web.Response(status=200)
+    except CallbackError as exc:
+        # Note: For security reasons, we do not send the reason
+        return web.Response(status=exc.status)
+    except Exception:
+        raise
 
-    def validate_mac(self, expected_mac, response):
-        try:
-            message = ''.join((
-                response['from'],
-                response['to'],
-                response['messageId'],
-                response['date'],
-                response['nonce'],
-                response['box'],
-            )).encode('ascii')
-        except UnicodeError as exc:
-            raise CallbackError(400, 'Cannot concatenate HMAC message') from exc
-        hmac_ = hmac.new(self.encoded_secret, msg=message, digestmod=hashlib.sha256)
-        actual_mac = hmac_.hexdigest()
-        if not hmac.compare_digest(expected_mac, actual_mac):
-            raise CallbackError(400, 'MACs do not match')
 
-    def validate_id(self, to_id):
-        if to_id != self.connection.id:
-            raise CallbackError(400, 'IDs do not match')
+def create_application(connection):
+    application = web.Application(client_max_size=MAX_HTTP_REQUEST_SIZE)
+    return application
 
-    @abc.abstractmethod
-    async def receive_message(self, message):
-        raise NotImplementedError
+
+def add_callback_route(
+    connection, application, message_handler, path='/gateway_callback'
+):
+    encoded_secret = connection.secret.encode('ascii')
+    handler = functools.partial(
+        handle_callback, encoded_secret, connection, message_handler)
+    application.router.add_routes([web.post(path, handler)])
 
 
 # TODO: Update docstring (arguments)

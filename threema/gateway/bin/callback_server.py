@@ -1,17 +1,20 @@
 """
 The command line interface for the Threema Gateway Callback Server.
 """
-import asyncio
-import functools
+import ssl
 
 import click
 import logbook
 import logbook.more
+from aiohttp import web
 
 from threema.gateway import Connection
 from threema.gateway import __version__ as _version
 from threema.gateway import util
-from threema.gateway.e2e import AbstractCallback
+from threema.gateway.e2e import (
+    add_callback_route,
+    create_application,
+)
 from threema.gateway.key import Key
 
 _logging_handler = None
@@ -24,37 +27,6 @@ _logging_levels = {
     6: logbook.DEBUG,
     7: logbook.TRACE,
 }
-
-
-class Callback(AbstractCallback):
-    async def receive_message(self, message):
-        click.echo('Got message ({}): {}'.format(repr(message), message))
-
-
-def aio_serve(close_func):
-    loop = asyncio.get_event_loop()
-
-    def decorator(func):
-        func = asyncio.coroutine(func)
-
-        def wrapper(*args, **kwargs):
-            # Start
-            click.echo('Starting')
-            open_result = loop.run_until_complete(func(*args, **kwargs))
-            click.echo('Started')
-            try:
-                loop.run_forever()
-            except KeyboardInterrupt:
-                pass
-            click.echo('Closing')
-            close_result = loop.run_until_complete(close_func(open_result))
-            loop.close()
-            click.echo('Closed')
-            return open_result, close_result
-
-        return functools.update_wrapper(wrapper, func)
-
-    return decorator
 
 
 @click.group()
@@ -93,11 +65,8 @@ def version():
     click.echo('Version: {}'.format(_version))
 
 
-async def close_server(server_and_callback):
-    server, callback = server_and_callback
-    server.close()
-    await server.wait_closed()
-    await callback.close()
+async def handle_message(message):
+    print('Got message ({}): {}'.format(repr(message), message))
 
 
 @cli.command(short_help='Start the callback server.', help="""
@@ -114,7 +83,6 @@ Path to a file that contains the private key. Will be read from
 CERTFILE if not present.""")
 @click.option('-h', '--host', help='Bind to a specific host.')
 @click.option('-p', '--port', default=443, help='Listen on a specific port.')
-@aio_serve(close_server)
 def serve(**arguments):
     # Get arguments
     identity = arguments['identity']
@@ -125,14 +93,21 @@ def serve(**arguments):
     host = arguments.get('host')
     port = arguments['port']
 
-    # Create connection and callback instances
+    # Create the connection, server application and register the handler for incoming
+    # messages.
     connection = Connection(identity=identity, secret=secret, key=private_key)
-    callback = Callback(connection)
+    application = create_application(connection)
+    add_callback_route(connection, application, handle_message, path='/gateway_callback')
 
-    # Create server
-    coroutine = callback.create_server(certfile, keyfile=keyfile, host=host, port=port)
-    server = await coroutine
-    return server, callback
+    # Create an SSL context to terminate TLS.
+    # Note: It is usually advisable to use a reverse proxy instead in front of
+    #       the server that terminates TLS, e.g. Nginx.
+    ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    ssl_context.load_cert_chain(certfile=certfile, keyfile=keyfile)
+
+    # Run a server that listens on any interface via port 8443. It will
+    # gracefully shut down when Ctrl+C has been pressed.
+    web.run_app(application, host=host, port=port, ssl_context=ssl_context)
 
 
 def main():
