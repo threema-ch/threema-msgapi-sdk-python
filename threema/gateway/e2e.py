@@ -3,6 +3,7 @@ Provides classes and functions for the end-to-end encryption mode.
 """
 import abc
 import binascii
+import collections
 import datetime
 import enum
 import hashlib
@@ -40,6 +41,7 @@ import functools
 __all__ = (
     'BLOB_ID_LENGTH',
     'MAX_HTTP_REQUEST_SIZE',
+    'CallbackContext',
     'handle_callback',
     'create_application',
     'add_callback_route',
@@ -158,7 +160,12 @@ def _validate_hmac(encoded_secret, expected_mac, response):
         raise CallbackError(400, 'MACs do not match')
 
 
-async def handle_callback(encoded_secret, connection, message_handler, request):
+CallbackContext = collections.namedtuple('CallbackContext', [
+    'encoded_secret', 'connection', 'message_handler', 'receive_handler',
+])
+
+
+async def handle_callback(context, request):
     try:
         response = await request.post()
 
@@ -175,8 +182,8 @@ async def handle_callback(encoded_secret, connection, message_handler, request):
             raise CallbackError(400, 'Could not unpack required fields') from exc
 
         # Validate HMAC and ID
-        _validate_hmac(encoded_secret, mac, response)
-        if to_id != connection.id:
+        _validate_hmac(context.encoded_secret, mac, response)
+        if to_id != context.connection.id:
             raise CallbackError(400, 'IDs do not match')
 
         # Validate from id length
@@ -202,7 +209,7 @@ async def handle_callback(encoded_secret, connection, message_handler, request):
 
         # Unpack message
         try:
-            message = await Message.receive(connection, {
+            message = await context.receive_handler(context.connection, {
                 'from_id': from_id,
                 'message_id': message_id,
                 'date': date,
@@ -211,7 +218,7 @@ async def handle_callback(encoded_secret, connection, message_handler, request):
             raise CallbackError(400, str(exc)) from exc
 
         # Pass message to handler
-        await message_handler(message)
+        await context.message_handler(message)
 
         # Respond with 'OK'
         return web.Response(status=200)
@@ -228,12 +235,19 @@ def create_application(connection):
 
 
 def add_callback_route(
-    connection, application, message_handler, path='/gateway_callback'
+    connection, application, message_handler,
+    path='/gateway_callback', receive_handler=None,
 ):
-    encoded_secret = connection.secret.encode('ascii')
-    handler = functools.partial(
-        handle_callback, encoded_secret, connection, message_handler)
-    application.router.add_routes([web.post(path, handler)])
+    if receive_handler is None:
+        receive_handler = Message.receive
+    context = CallbackContext(
+        connection.secret.encode('ascii'),
+        connection,
+        message_handler,
+        receive_handler,
+    )
+    application.router.add_routes([web.post(
+        path, functools.partial(handle_callback, context))])
 
 
 # TODO: Update docstring (arguments)
