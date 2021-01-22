@@ -1,0 +1,50 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - $default-branch
+  pull_request:
+    branches:
+      - $default-branch
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.7, 3.6]
+        event-loop: [asyncio, uvloop]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          sudo apt install libsodium
+          python -m pip install -U pip
+      - name: Install threema.gateway
+        run: |
+          python -m pip install .[dev]
+      - name: Install uvloop for threema.gateway
+        if: ${{ matrix.event-loop == 'uvloop' }}
+        run: |
+          python -m pip install .[uvloop]
+      - name: Lint with flake8
+        run: |
+          flake8 .
+      - name: Lint with isort
+        run: |
+          isort -rc -c . || (isort -rc -df . && return 1)
+      - name: Lint with checkdocs
+        run: |
+          python setup.py checkdocs
+      - name: Lint with mypy
+        run: |
+          mypy .
+      - name: Test with pytest
+        run: |
+          py.test --loop=$EVENT_LOOP
