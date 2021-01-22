@@ -45,7 +45,7 @@ tests_require = [
     'isort==4.3.21',
     'collective.checkdocs>=0.2',
     'Pygments>=2.2.0',  # required by checkdocs
-    'mypy==0.770',
+    'mypy==0.800',
 ]
 
 setup(
