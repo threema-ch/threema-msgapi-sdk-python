@@ -8,7 +8,7 @@ Signing key: https://lgrahl.de/pub/pgp-key.txt
    ```bash
    flake8 .
    isort -rc -c . || isort -rc -df
-   mypy .
+   mypy setup.py tests examples threema
    py.test
    ```
 
