@@ -1,6 +1,37 @@
 Changelog
 *********
 
+`4.0.0`_ (2021-01-23)
+---------------------
+
+General:
+
+- Dropped support for Python versions below 3.6.1.
+- Deprecated `ReceiptType.user_ack` has been removed. Use
+  `ReceiptType.user_acknowledge` instead.
+- `util.aio_run` has been simplified. It does not allow for passing a specific
+  event loop or closing the event loop on completion any longer.
+- `util.aio_run_proxy_decorator` has been renamed to `aio_run_proxy` and now
+  always creates the class instance within a running event loop.
+
+Client:
+
+- In async mode, creation of the `Connection` instance must now be done within
+  an `async` function.
+- If you have used a `with` context manager block in async mode before, you
+  must now do this within an `async with` asynchronous context manager. No
+  change is required in blocking mode.
+- `Connection.close` is now an async function.
+
+Server:
+
+- The callback server has been refactored and the `AbstractCallback` class has
+  been removed for more flexibility and control of the underlying
+  `aiohttp <https://docs.aiohttp.org>`_ server. Take a look at
+  `examples/callback.py` on how to use it.
+- The callback server CLI has been removed because it was redundant. The
+  example provides the same functionality.
+
 `3.1.0`_ (2020-04-21)
 ---------------------
 
@@ -28,6 +59,7 @@ Changelog
 
 - Initial publication on PyPI
 
+.. _4.0.0: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.1.0...v4.0.0
 .. _3.1.0: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.0.6...v3.1.0
 .. _3.0.6: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.0.5...v3.0.6
 .. _3.0.5: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.0.4...v3.0.5
