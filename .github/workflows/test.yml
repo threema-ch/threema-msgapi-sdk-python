@@ -22,7 +22,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          sudo apt install libsodium
+          sudo apt-get install libsodium23
           python -m pip install -U pip
       - name: Install threema.gateway
         run: |
