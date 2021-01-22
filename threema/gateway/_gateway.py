@@ -1,4 +1,3 @@
-import asyncio
 import binascii
 import enum
 

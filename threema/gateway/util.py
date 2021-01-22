@@ -15,9 +15,10 @@ import logbook
 import logbook.compat
 import logbook.more
 import wrapt
-
-from memoization.caching.general import values_with_ttl
-from memoization.caching.general import keys_order_dependent
+from memoization.caching.general import (
+    keys_order_dependent,
+    values_with_ttl,
+)
 
 from .key import Key
 
@@ -30,7 +31,7 @@ __all__ = (
     'randint',
     'ViewIOReader',
     'ViewIOWriter',
-    'async_lru_cache',
+    'async_ttl_cache',
     'aio_run',
     'aio_run_decorator',
     'aio_run_proxy_decorator',
