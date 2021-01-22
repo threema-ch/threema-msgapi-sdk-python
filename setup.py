@@ -77,7 +77,6 @@ setup(
     entry_points={
         'console_scripts': [
             'threema-gateway = threema.gateway.bin.gateway_client:main',
-            'threema-callback-server = threema.gateway.bin.callback_server:main',
         ],
     },
 
