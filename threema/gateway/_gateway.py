@@ -19,7 +19,7 @@ from .exception import (
 from .key import Key
 from .util import (
     AioRunMixin,
-    aio_run_proxy_decorator,
+    aio_run_proxy,
     async_ttl_cache,
     raise_server_error,
 )
@@ -42,7 +42,7 @@ class ReceptionCapability(enum.Enum):
     file = 'file'
 
 
-@aio_run_proxy_decorator
+@aio_run_proxy
 class Connection(AioRunMixin):
     """
     Container for the sender's Threema ID and the Threema Gateway
@@ -79,6 +79,7 @@ class Connection(AioRunMixin):
           for an explicit event loop.
     """
     async_functions = {
+        '__exit__',
         'get_public_key',
         'get_id',
         'get_reception_capabilities',
@@ -128,8 +129,8 @@ class Connection(AioRunMixin):
             raise RuntimeError("Use `async with` in async mode")
         return self
 
-    def __exit__(self, *_):
-        self.close()
+    async def __exit__(self, *_):
+        await self.close()
 
     async def __aenter__(self):
         if self.blocking:

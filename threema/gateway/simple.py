@@ -6,7 +6,7 @@ import abc
 from .exception import MessageError
 from .util import (
     AioRunMixin,
-    aio_run_proxy_decorator,
+    aio_run_proxy,
 )
 
 __all__ = (
@@ -42,7 +42,7 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
         """
 
 
-@aio_run_proxy_decorator
+@aio_run_proxy
 class TextMessage(Message):
     """
     Create and send a text message to a recipient.

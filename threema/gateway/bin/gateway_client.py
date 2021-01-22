@@ -111,7 +111,7 @@ and then the encrypted box (hex).
 """)
 @click.argument('private_key')
 @click.argument('public_key')
-@util.aio_run_decorator()
+@util.aio_run
 async def encrypt(private_key, public_key):
     # Get key instances
     private_key = util.read_key_or_key_file(private_key, Key.Type.private)
@@ -137,7 +137,7 @@ Prints the decrypted text message to standard output.
 @click.argument('private_key')
 @click.argument('public_key')
 @click.argument('nonce')
-@util.aio_run_decorator()
+@util.aio_run
 async def decrypt(private_key, public_key, nonce):
     # Get key instances
     private_key = util.read_key_or_key_file(private_key, Key.Type.private)
@@ -229,7 +229,7 @@ Prints the message ID on success.
 @click.argument('from')
 @click.argument('secret')
 @click.pass_context
-@util.aio_run_decorator()
+@util.aio_run
 async def send_simple(ctx, **arguments):
     # Read message from stdin
     text = click.get_text_stream('stdin').read().strip()
@@ -262,7 +262,7 @@ Prints the message ID on success.
 The public key of the recipient. Will be fetched automatically if not provided.
 """)
 @click.pass_context
-@util.aio_run_decorator()
+@util.aio_run
 async def send_e2e(ctx, **arguments):
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
@@ -311,7 +311,7 @@ Prints the message ID on success.
 The public key of the recipient. Will be fetched automatically if not provided.
 """)
 @click.pass_context
-@util.aio_run_decorator()
+@util.aio_run
 async def send_image(ctx, **arguments):
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
@@ -361,7 +361,7 @@ The public key of the recipient. Will be fetched automatically if not provided.
 Duration of the video in seconds. Defaults to 0.
 """, default=0)
 @click.pass_context
-@util.aio_run_decorator()
+@util.aio_run
 async def send_video(ctx, **arguments):
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
@@ -411,7 +411,7 @@ The public key of the recipient. Will be fetched automatically if not provided.
 The relative or absolute path to a thumbnail.
 """)
 @click.pass_context
-@util.aio_run_decorator()
+@util.aio_run
 async def send_file(ctx, **arguments):
     # Get key instances
     private_key = util.read_key_or_key_file(arguments['private_key'], Key.Type.private)
@@ -453,7 +453,7 @@ FROM is the API identity and SECRET is the API secret.
 @click.option('-p', '--phone', help='A phone number in E.164 format.')
 @click.option('-i', '--id', help='A Threema ID.')
 @click.pass_context
-@util.aio_run_decorator()
+@util.aio_run
 async def lookup(ctx, **arguments):
     modes = ['email', 'phone', 'id']
     mode = {key: value for key, value in arguments.items()
@@ -484,7 +484,7 @@ Prints a set of capabilities in alphabetical order on success.
 @click.argument('secret')
 @click.argument('id')
 @click.pass_context
-@util.aio_run_decorator()
+@util.aio_run
 async def capabilities(ctx, **arguments):
     # Create connection
     connection = Connection(arguments['from'], arguments['secret'], **ctx.obj)
@@ -503,7 +503,7 @@ FROM is the API identity and SECRET is the API secret.
 @click.argument('from')
 @click.argument('secret')
 @click.pass_context
-@util.aio_run_decorator()
+@util.aio_run
 async def credits(ctx, **arguments):
     # Create connection
     connection = Connection(arguments['from'], arguments['secret'], **ctx.obj)
