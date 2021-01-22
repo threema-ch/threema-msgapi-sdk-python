@@ -6,6 +6,7 @@ import binascii
 import collections
 import datetime
 import enum
+import functools
 import hashlib
 import hmac
 import json
@@ -36,7 +37,6 @@ from .util import (
     aio_run_proxy_decorator,
     randint,
 )
-import functools
 
 __all__ = (
     'BLOB_ID_LENGTH',

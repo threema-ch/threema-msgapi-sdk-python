@@ -2,7 +2,6 @@
 Provides classes for the simple mode.
 """
 import abc
-import asyncio
 
 from .exception import MessageError
 from .util import (
