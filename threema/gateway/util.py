@@ -33,8 +33,7 @@ __all__ = (
     'ViewIOWriter',
     'async_ttl_cache',
     'aio_run',
-    'aio_run_decorator',
-    'aio_run_proxy_decorator',
+    'aio_run_proxy',
     'AioRunMixin',
 )
 
@@ -377,19 +376,12 @@ def async_ttl_cache(ttl):
     return _decorator
 
 
-def aio_run(coroutine, loop=None, close_after_complete=False):
+def aio_run(func):
     """
-    Decorator to run an asyncio coroutine as a normal blocking
-    function.
+    Decorate an async function to run as a normal blocking function.
 
-    Arguments:
-        - `coroutine`: The asyncio coroutine or task to be executed.
-        - `loop`: An optional :class:`asyncio.AbstractEventLoop`
-          subclass instance.
-        - `close_after_complete`: Close `loop` after the coroutine
-          returned. Defaults to ``False``.
-
-    Returns the result of the asyncio coroutine.
+    The async function will be executed in the currently running event
+    loop (or automatically create one if none exists).
 
     Example:
 
@@ -398,77 +390,21 @@ def aio_run(coroutine, loop=None, close_after_complete=False):
             await asyncio.sleep(timeout)
             return True
 
-        # Call coroutine in a blocking manner
-        result = aio_run(coroutine(1.0))
-        print(result)
-    """
-
-    # Create a new event loop (if required)
-    if loop is None:
-        loop_ = asyncio.get_event_loop()
-
-        # Closed? Set a new one
-        if loop_.is_closed():
-            loop_ = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop_)
-    else:
-        loop_ = loop
-
-    # Run the coroutine and get the result
-    result = loop_.run_until_complete(coroutine)
-
-    # Close loop (if requested)
-    if close_after_complete:
-        loop_.close()
-
-    # Return the result
-    return result
-
-
-def aio_run_decorator(loop=None, close_after_complete=False):
-    """
-    Decorator to run an asyncio coroutine as a normal blocking
-    function.
-
-    Arguments:
-        - `loop`: An optional :class:`asyncio.AbstractEventLoop`
-          subclass instance.
-        - `close_after_complete`: Close `loop` after the coroutine
-          returned. Defaults to ``False``.
-
-    Returns a decorator to wrap around an asyncio coroutine.
-
-    Example:
-
-    .. code-block::
-        async def coroutine(timeout):
-            await asyncio.sleep(timeout)
-            return True
-
-        @aio_run_decorator()
-        async def helper(*args, **kwargs):
+        @aio_run
+        async def runner(*args, **kwargs):
             return await coroutine(*args, **kwargs)
 
         # Call coroutine in a blocking manner
-        result = helper(timeout=1.0)
+        result = runner(timeout=1.0)
         print(result)
     """
-    def _decorator(func):
-        # Make it a coroutine if it isn't one already
-        if not asyncio.iscoroutinefunction(func):
-            func = asyncio.coroutine(func)
-
-        def _wrapper(*args, **kwargs):
-            return aio_run(
-                func(*args, **kwargs),
-                loop=loop,
-                close_after_complete=close_after_complete,
-            )
-        return functools.update_wrapper(_wrapper, func)
-    return _decorator
+    def _wrapper(*args, **kwargs):
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(func(*args, **kwargs))
+    return functools.update_wrapper(_wrapper, func)
 
 
-def aio_run_proxy_decorator(cls):
+def aio_run_proxy(cls):
     """
     Proxy a publicly accessible class and run all methods marked as
     async inside it (using the class attribute `async_functions`) with
@@ -502,8 +438,14 @@ def aio_run_proxy_decorator(cls):
 
     class _AioRunProxyDecoratorFactory(wrapt.ObjectProxy):
         def __call__(self, *args, **kwargs):
-            # Create instance
-            instance = cls(*args, **kwargs)
+            # Create the instance while an event loop is running
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                instance = cls(*args, **kwargs)
+            else:
+                async def _create_instance():
+                    return cls(*args, **kwargs)
+                instance = loop.run_until_complete(_create_instance())
 
             # Sanity-check
             if not isinstance(instance, AioRunMixin):
@@ -523,7 +465,7 @@ def aio_run_proxy_decorator(cls):
                 # Wrap all async functions with `aio_run`
                 for name in async_functions:
                     def _method(instance_, name_, *args_, **kwargs_):
-                        method = aio_run_decorator()(getattr(instance_, name_))
+                        method = aio_run(getattr(instance_, name_))
                         return method(*args_, **kwargs_)
 
                     _method = functools.partial(_method, instance, name)
@@ -538,7 +480,7 @@ def aio_run_proxy_decorator(cls):
 
 class AioRunMixin:
     """
-    Must be inherited when using :func:`aio_run_proxy_decorator`.
+    Must be inherited when using :func:`aio_run_proxy`.
 
     Arguments:
         - `blocking`: Switch to turn the blocking API on or off.

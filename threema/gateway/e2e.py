@@ -34,7 +34,7 @@ from .util import (
     AioRunMixin,
     ViewIOReader,
     ViewIOWriter,
-    aio_run_proxy_decorator,
+    aio_run_proxy,
     randint,
 )
 
@@ -633,7 +633,7 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
 
 
 # TODO: Update docstring (arguments)
-@aio_run_proxy_decorator
+@aio_run_proxy
 class DeliveryReceipt(Message):
     """
     A delivery receipt that can be received in end-to-end mode.
@@ -720,7 +720,7 @@ class DeliveryReceipt(Message):
 
 
 # TODO: Update docstring (arguments)
-@aio_run_proxy_decorator
+@aio_run_proxy
 class TextMessage(Message):
     """
     A text message.
@@ -787,7 +787,7 @@ class TextMessage(Message):
 
 
 # TODO: Update docstring (arguments)
-@aio_run_proxy_decorator
+@aio_run_proxy
 class ImageMessage(Message):
     """
     An image message.
@@ -925,7 +925,7 @@ class ImageMessage(Message):
 
 
 # TODO: Update docstring (arguments)
-@aio_run_proxy_decorator
+@aio_run_proxy
 class VideoMessage(Message):
     """
     A video message including a thumbnail.
@@ -1118,7 +1118,7 @@ class VideoMessage(Message):
 
 
 # TODO: Update docstring (arguments)
-@aio_run_proxy_decorator
+@aio_run_proxy
 class FileMessage(Message):
     """
     A file message including a thumbnail.
