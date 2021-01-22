@@ -42,7 +42,7 @@ jobs:
           python setup.py checkdocs
       - name: Lint with mypy
         run: |
-          mypy .
+          mypy setup.py tests examples threema
       - name: Test with pytest
         run: |
-          py.test --loop=$EVENT_LOOP
+          py.test --loop=${{ matrix.event-loop }}
