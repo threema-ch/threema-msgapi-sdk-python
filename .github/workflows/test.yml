@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get install libsodium23
-          python -m pip install -U pip
+          python -m pip install -U pip setuptools
       - name: Install threema.gateway
         run: |
           python -m pip install .[dev]
