@@ -71,6 +71,8 @@ class Connection(AioRunMixin):
         - `blocking`: Whether to use a blocking API, without the need
           for an explicit event loop.
         - `session`: An optional :class:`aiohttp.ClientSession`.
+        - `session_kwargs`: Additional key value arguments passed to the
+          client session on each call to `get` and `post`.
     """
     async_functions = {
         '__exit__',
@@ -100,10 +102,11 @@ class Connection(AioRunMixin):
     def __init__(
             self, identity, secret,
             key=None, key_file=None,
-            blocking=False, session=None,
+            blocking=False, session=None, session_kwargs=None,
     ):
         super().__init__(blocking=blocking)
         self._session = session if session is not None else aiohttp.ClientSession()
+        self._session_kwargs = session_kwargs if session_kwargs is not None else {}
         self._key = None
         self._key_file = None
         self.id = identity
@@ -307,12 +310,13 @@ class Connection(AioRunMixin):
 
         Return a :class:`aiohttp.ClientResponse` instance.
         """
+        kwargs = {**self._session_kwargs, **kwargs}
         kwargs.setdefault('params', {})
         kwargs['params'].setdefault('from', self.id)
         kwargs['params'].setdefault('secret', self.secret)
         return await self._session.get(*args, **kwargs)
 
-    async def _send(self, url, data):
+    async def _send(self, url, data, **kwargs):
         """
         Send a message.
 
@@ -327,13 +331,14 @@ class Connection(AioRunMixin):
         data.setdefault('secret', self.secret)
 
         # Send message
-        response = await self._session.post(url, data=data)
+        kwargs = {**self._session_kwargs, **kwargs}
+        response = await self._session.post(url, data=data, **kwargs)
         if response.status == 200:
             return await response.text()
         else:
             await raise_server_error(response, MessageServerError)
 
-    async def _upload(self, url, data):
+    async def _upload(self, url, data, **kwargs):
         """
         Upload a blob.
 
@@ -349,7 +354,8 @@ class Connection(AioRunMixin):
         files = {'blob': data}
 
         # Send message
-        response = await self._session.post(url, params=params, data=files)
+        kwargs = {**self._session_kwargs, **kwargs}
+        response = await self._session.post(url, params=params, data=files, **kwargs)
         if response.status == 200:
             return await response.text()
         else:
