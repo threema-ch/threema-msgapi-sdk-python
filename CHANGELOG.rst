@@ -1,6 +1,13 @@
 Changelog
 *********
 
+`5.0.0`_ (2021-05-17)
+---------------------
+
+- Added custom session and session arguments to `Connection` (#55, #56)
+- Removed the `fingerprint` and `verify_fingerprint` arguments, see #55 for a
+  detailed explanation and how to achieve pinning
+
 `4.0.0`_ (2021-01-23)
 ---------------------
 
@@ -59,6 +66,7 @@ Server:
 
 - Initial publication on PyPI
 
+.. _5.0.0: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v4.0.0...v5.0.0
 .. _4.0.0: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.1.0...v4.0.0
 .. _3.1.0: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.0.6...v3.1.0
 .. _3.0.6: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.0.5...v3.0.6
