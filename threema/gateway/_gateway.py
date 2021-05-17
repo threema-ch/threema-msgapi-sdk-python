@@ -1,4 +1,3 @@
-import binascii
 import enum
 
 import aiohttp
@@ -69,14 +68,9 @@ class Connection(AioRunMixin):
           end-to-end mode.
         - `key_file`: A file where the private key is stored
           in. Can be used instead of passing the key directly.
-        - `fingerprint`: A binary fingerprint of an DER-encoded TLS
-          certificate. Will fall back to a stored fingerprint which will
-          be invalid as soon as the certificate expires.
-        - `verify_fingerprint`: Set to `True` if you want to verify the
-          TLS certificate of the Threema Gateway Server by a
-          fingerprint. (Recommended)
         - `blocking`: Whether to use a blocking API, without the need
           for an explicit event loop.
+        - `session`: An optional :class:`aiohttp.ClientSession`.
     """
     async_functions = {
         '__exit__',
@@ -89,8 +83,6 @@ class Connection(AioRunMixin):
         'upload',
         'download',
     }
-    fingerprint = binascii.unhexlify(
-        b'42b1038e72f00c8c4dad78a3ebdc6d7a50c5ef288da9019b9171e4d675c08a17')
     urls = {
         'get_public_key': 'https://msgapi.threema.ch/pubkeys/{}',
         'get_id_by_phone': 'https://msgapi.threema.ch/lookup/phone/{}',
@@ -108,15 +100,10 @@ class Connection(AioRunMixin):
     def __init__(
             self, identity, secret,
             key=None, key_file=None,
-            fingerprint=None, verify_fingerprint=False, blocking=False,
+            blocking=False, session=None,
     ):
         super().__init__(blocking=blocking)
-        if fingerprint is None and verify_fingerprint:
-            fingerprint = self.fingerprint
-        if fingerprint is not None:
-            fingerprint = aiohttp.Fingerprint(fingerprint)
-        connector = aiohttp.TCPConnector(ssl=fingerprint)
-        self._session = aiohttp.ClientSession(connector=connector)
+        self._session = session if session is not None else aiohttp.ClientSession()
         self._key = None
         self._key_file = None
         self.id = identity

@@ -136,7 +136,6 @@ async def main():
         identity='*YOUR_GATEWAY_THREEMA_ID',
         secret='YOUR_GATEWAY_THREEMA_ID_SECRET',
         key='private:YOUR_PRIVATE_KEY',
-        verify_fingerprint=True,
     )
     try:
         async with connection:
