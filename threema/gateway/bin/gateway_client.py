@@ -5,7 +5,6 @@ import binascii
 import os
 import re
 
-import aiohttp
 import click
 import logbook
 import logbook.more
@@ -60,11 +59,8 @@ class _MockConnection(AioRunMixin):
 @click.option('-v', '--verbosity', type=click.IntRange(0, len(_logging_levels)),
               default=0, help="Logging verbosity.")
 @click.option('-c', '--colored', is_flag=True, help='Colourise logging output.')
-@click.option('-vf', '--verify-fingerprint', is_flag=True,
-              help='Verify the certificate fingerprint.')
-@click.option('--fingerprint', type=str, help='A hex-encoded fingerprint.')
 @click.pass_context
-def cli(ctx, verbosity, colored, verify_fingerprint, fingerprint):
+def cli(ctx, verbosity, colored):
     """
     Command Line Interface. Use --help for details.
     """
@@ -84,15 +80,8 @@ def cli(ctx, verbosity, colored, verify_fingerprint, fingerprint):
         global _logging_handler
         _logging_handler = handler
 
-    # Fingerprint
-    if fingerprint is not None:
-        fingerprint = binascii.unhexlify(fingerprint)
-
     # Store on context
-    ctx.obj = {
-        'verify_fingerprint': verify_fingerprint,
-        'fingerprint': fingerprint
-    }
+    ctx.obj = {}
 
 
 @cli.command(short_help='Show version information.', help="""
@@ -516,8 +505,6 @@ def main():
     exc = None
     try:
         cli()
-    except aiohttp.client_exceptions.ServerFingerprintMismatch:
-        error = 'Fingerprints did not match!'
     except Exception as exc_:
         error = str(exc_)
         exc = exc_

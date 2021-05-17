@@ -17,7 +17,6 @@ def main():
     connection = Connection(
         identity='*YOUR_GATEWAY_THREEMA_ID',
         secret='YOUR_GATEWAY_THREEMA_ID_SECRET',
-        verify_fingerprint=True,
         blocking=True,
     )
     try:
