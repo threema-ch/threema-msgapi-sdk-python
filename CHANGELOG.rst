@@ -1,11 +1,19 @@
 Changelog
 *********
 
+`6.0.0`_ (TBD)
+--------------
+
+General:
+
+- Add support for Python 3.10
+- Drop support for Python versions below 3.7
+
 `5.0.0`_ (2021-05-17)
 ---------------------
 
-- Added custom session and session arguments to `Connection` (#55, #56)
-- Removed the `fingerprint` and `verify_fingerprint` arguments, see #55 for a
+- Add custom session and session arguments to `Connection` (#55, #56)
+- Remove the `fingerprint` and `verify_fingerprint` arguments, see #55 for a
   detailed explanation and how to achieve pinning
 
 `4.0.0`_ (2021-01-23)
@@ -13,13 +21,13 @@ Changelog
 
 General:
 
-- Dropped support for Python versions below 3.6.1.
-- Deprecated `ReceiptType.user_ack` has been removed. Use
+- Drop support for Python versions below 3.6.1.
+- Remove `ReceiptType.user_ack` after deprecation. Use
   `ReceiptType.user_acknowledge` instead.
-- `util.aio_run` has been simplified. It does not allow for passing a specific
-  event loop or closing the event loop on completion any longer.
-- `util.aio_run_proxy_decorator` has been renamed to `aio_run_proxy` and now
-  always creates the class instance within a running event loop.
+- Simplify `util.aio_run`. It does not allow for passing a specific event loop
+  or closing the event loop on completion any longer.
+- Rename `util.aio_run_proxy_decorator` to `aio_run_proxy`. It now always
+  creates the class instance within a running event loop.
 
 Client:
 
