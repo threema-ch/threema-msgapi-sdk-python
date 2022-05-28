@@ -55,10 +55,10 @@ __all__ = (
 
 BLOB_ID_LENGTH = 16
 
-# A box can contain up to 4000 bytes, so this should be sufficient.
+# A box can contain up to 7812 bytes, so this should be sufficient.
 # The remaining POST parameters aren't that big.
 # See: https://gateway.threema.ch/en/developer/api
-MAX_HTTP_REQUEST_SIZE = 8192
+MAX_HTTP_REQUEST_SIZE = 16384
 
 
 def _pk_encrypt(key_pair: Tuple[Key, Key], data: bytes, nonce: bytes = None):
