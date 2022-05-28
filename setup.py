@@ -42,7 +42,7 @@ tests_require = [
     'pytest-cov>=3.0.0,<4',
     'flake8==4.0.1',
     'isort==5.10.1',
-    'collective.checkdocs>=0.2',
+    'collective.checkdocs>=0.2,<0.3',
     'Pygments>=2.12.0',  # required by checkdocs
     'mypy==0.961',
 ]
@@ -54,7 +54,7 @@ setup(
     install_requires=[
         'logbook>=1.1.0,<2',
         'libnacl>=1.5.2,<2',
-        'click>=6.7,<7',  # doesn't seem to follow semantic versioning
+        'click>=8,<9',
         'aiohttp>=3.7.3,<4',
         'wrapt>=1.10.10,<2',
     ],

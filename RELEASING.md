@@ -1,13 +1,13 @@
 Release Process
 ===============
 
-Signing key: https://lgrahl.de/pub/pgp-key.txt
+Signing key: <https://lgrahl.de/pub/pgp-key.txt>
 
 1. Check the code:
 
    ```bash
    flake8 .
-   isort -rc -c . || isort -rc -df
+   isort -c . || isort --df .
    mypy setup.py tests examples threema
    py.test
    ```
@@ -26,11 +26,11 @@ Signing key: https://lgrahl.de/pub/pgp-key.txt
 
 4. Do a signed commit and signed tag of the release:
 
-  ```bash
-  git add threema/gateway/__init__.py CHANGELOG.rst
-  git commit -S${GPG_KEY} -m "Release v${VERSION}"
-  git tag -u ${GPG_KEY} -m "Release v${VERSION}" v${VERSION}
-  ```
+   ```bash
+   git add threema/gateway/__init__.py CHANGELOG.rst
+   git commit -S${GPG_KEY} -m "Release v${VERSION}"
+   git tag -u ${GPG_KEY} -m "Release v${VERSION}" v${VERSION}
+   ```
 
 5. Build source and binary distributions:
 
@@ -69,4 +69,3 @@ Signing key: https://lgrahl.de/pub/pgp-key.txt
    ```
 
 10. Pat yourself on the back and celebrate!
-
