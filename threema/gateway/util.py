@@ -15,12 +15,14 @@ import logbook
 import logbook.compat
 import logbook.more
 import wrapt
-from memoization.caching.general import (
-    keys_order_dependent,
-    values_with_ttl,
-)
 
 from .key import Key
+from .memoization import (
+    make_key,
+    make_cache_value,
+    is_cache_value_valid,
+    retrieve_result_from_cache_value,
+)
 
 __all__ = (
     'enable_logging',
@@ -334,7 +336,7 @@ def async_ttl_cache(ttl):
 
         async def _wrapper(*args, **kwargs):
             nonlocal hits, misses
-            key = keys_order_dependent.make_key(args, kwargs)
+            key = make_key(args, kwargs)
 
             # Attempt to get value from cache
             try:
@@ -343,14 +345,14 @@ def async_ttl_cache(ttl):
                 pass
             else:
                 # Hit. Return cached value if still valid.
-                if values_with_ttl.is_cache_value_valid(node):
+                if is_cache_value_valid(node):
                     hits += 1
-                    return values_with_ttl.retrieve_result_from_cache_value(node)
+                    return retrieve_result_from_cache_value(node)
 
             # Miss. Get value from function and insert into cache.
             misses += 1
             value = await func(*args, **kwargs)
-            cache[key] = values_with_ttl.make_cache_value(value, ttl)
+            cache[key] = make_cache_value(value, ttl)
             return value
 
         def cache_clear():
