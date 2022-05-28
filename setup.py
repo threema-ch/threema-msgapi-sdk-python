@@ -31,8 +31,8 @@ long_description = '\n\n'.join((read('README.rst'), read('CHANGELOG.rst')))
 
 # Check python version
 py_version = sys.version_info[:3]
-if py_version < (3, 6, 1):
-    raise Exception("threema.gateway requires Python >= 3.6.1")
+if py_version < (3, 7, 0):
+    raise Exception("threema.gateway requires Python >= 3.7")
 
 # Test requirements
 # Note: These are just tools that aren't required, so a version range
@@ -62,13 +62,6 @@ setup(
     ],
     tests_require=tests_require,
     extras_require={
-        ':python_version<="3.4"': [
-            'asyncio==3.4.3',
-            'pytest-asyncio==0.5.0'
-        ],
-        ':python_version<="3.5"': [
-            'typing>=3.6.1,<3.7',
-        ],
         'dev': tests_require,
         'uvloop': ['uvloop>=0.8.0,<2'],
     },
