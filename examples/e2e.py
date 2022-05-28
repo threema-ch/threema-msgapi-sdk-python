@@ -154,6 +154,4 @@ if __name__ == '__main__':
     util.enable_logging(logbook.WARNING)
     log_handler = logbook.more.ColorizedStderrHandler()
     with log_handler.applicationbound():
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(main())
-        loop.close()
+        asyncio.run(main())
