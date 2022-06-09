@@ -1,7 +1,6 @@
 import ast
 import os
 import sys
-
 from setuptools import (
     find_packages,
     setup,
@@ -41,11 +40,11 @@ tests_require = [
     'pytest>=3.1.3,<4',
     'pytest-asyncio>=0.6.0,<0.10',
     'pytest-cov>=2.5.1,<3',
-    'flake8==3.7.9',
-    'isort==4.3.21',
+    'flake8==4.0.1',
+    'isort==5.10.1',
     'collective.checkdocs>=0.2',
-    'Pygments>=2.2.0',  # required by checkdocs
-    'mypy==0.800',
+    'Pygments>=2.12.0',  # required by checkdocs
+    'mypy==0.961',
 ]
 
 setup(

@@ -2,12 +2,11 @@
 The command line interface for the Threema gateway service.
 """
 import binascii
-import os
-import re
-
 import click
 import logbook
 import logbook.more
+import os
+import re
 
 from threema.gateway import Connection
 from threema.gateway import __version__ as _version
