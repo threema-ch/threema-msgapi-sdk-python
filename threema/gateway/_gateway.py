@@ -1,6 +1,5 @@
-import enum
-
 import aiohttp
+import enum
 import libnacl.encode
 import libnacl.public
 

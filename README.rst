@@ -116,7 +116,7 @@ imports (``isort``) and run the project's tests:
 .. code-block:: bash
 
     $ flake8 .
-    $ isort -rc .
+    $ isort .
     $ py.test
 
 You should also run the type checker that might catch some additional bugs:
