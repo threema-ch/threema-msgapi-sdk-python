@@ -24,6 +24,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+.venv/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -57,8 +58,6 @@ docs/_build/
 
 # PyBuilder
 target/
-### Example user template template
-### Example user template
 
 # IntelliJ project files
 .idea
