@@ -1,7 +1,6 @@
-import ssl
-
 import logbook
 import logbook.more
+import ssl
 from aiohttp import web
 
 from threema.gateway import (
