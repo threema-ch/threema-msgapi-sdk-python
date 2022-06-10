@@ -62,7 +62,8 @@ class Server:
         key = b'4a6a1b34dcef15d43cb74de2fd36091be99fbbaf126d099d47d83d919712c72b'
         self.echoecho_key = key
         self.echoecho_encoded_key = 'public:' + key.decode('ascii')
-        decoded_private_key = Key.decode(pytest.msgapi.private, Key.Type.private)
+        decoded_private_key = Key.decode(
+            pytest.msgapi['msgapi']['private'], Key.Type.private)
         self.mocking_key = Key.derive_public(decoded_private_key).hex_pk()
         self.blobs = {}
         self.latest_blob_ids = []
@@ -83,7 +84,7 @@ class Server:
     async def pubkeys(self, request):
         key = request.match_info['key']
         from_, secret = request.query['from'], request.query['secret']
-        if (from_, secret) not in pytest.msgapi.api_identities:
+        if (from_, secret) not in pytest.values['msgapi']['api_identities']:
             return web.Response(status=401)
         elif len(key) != 8:
             return web.Response(status=404)
@@ -96,7 +97,7 @@ class Server:
     async def lookup_phone(self, request):
         phone = request.match_info['phone']
         from_, secret = request.query['from'], request.query['secret']
-        if (from_, secret) not in pytest.msgapi.api_identities:
+        if (from_, secret) not in pytest.values['msgapi']['api_identities']:
             return web.Response(status=401)
         elif not phone.isdigit():
             return web.Response(status=404)
@@ -108,7 +109,7 @@ class Server:
         phone_hash = request.match_info['phone_hash']
         from_, secret = request.query['from'], request.query['secret']
         hash_ = '98b05f6eda7a878f6f016bdcdc9db6eb61a6b190e814ff787142115af144214c'
-        if (from_, secret) not in pytest.msgapi.api_identities:
+        if (from_, secret) not in pytest.values['msgapi']['api_identities']:
             return web.Response(status=401)
         elif len(phone_hash) % 2 != 0:
             # Note: This status code might not be intended and may change in the future
@@ -122,7 +123,7 @@ class Server:
     async def lookup_email(self, request):
         email = request.match_info['email']
         from_, secret = request.query['from'], request.query['secret']
-        if (from_, secret) not in pytest.msgapi.api_identities:
+        if (from_, secret) not in pytest.values['msgapi']['api_identities']:
             return web.Response(status=401)
         elif email == 'echoecho@example.com':
             return web.Response(body=b'ECHOECHO')
@@ -132,7 +133,7 @@ class Server:
         email_hash = request.match_info['email_hash']
         from_, secret = request.query['from'], request.query['secret']
         hash_ = '45a13d422b40f81936a9987245d3f6d9064c90607273af4f578246b4484669e2'
-        if (from_, secret) not in pytest.msgapi.api_identities:
+        if (from_, secret) not in pytest.values['msgapi']['api_identities']:
             return web.Response(status=401)
         elif len(email_hash) % 2 != 0:
             # Note: This status code might not be intended and may change in the future
@@ -146,7 +147,7 @@ class Server:
     async def capabilities(self, request):
         id_ = request.match_info['id']
         from_, secret = request.query['from'], request.query['secret']
-        if (from_, secret) not in pytest.msgapi.api_identities:
+        if (from_, secret) not in pytest.values['msgapi']['api_identities']:
             return web.Response(status=401)
         elif id_ == 'ECHOECHO':
             return web.Response(body=b'text,image,video,file')
@@ -156,7 +157,7 @@ class Server:
 
     async def credits(self, request):
         from_, secret = request.query['from'], request.query['secret']
-        if (from_, secret) not in pytest.msgapi.api_identities:
+        if (from_, secret) not in pytest.values['msgapi']['api_identities']:
             return web.Response(status=401)
         return web.Response(body=b'100')
 
@@ -164,7 +165,8 @@ class Server:
         post = await request.post()
 
         # Check API identity
-        if (post['from'], post['secret']) not in pytest.msgapi.api_identities:
+        if (post['from'], post['secret']) not in \
+                pytest.values['msgapi']['api_identities']:
             return web.Response(status=401)
 
         # Get ID from to, email or phone
@@ -179,7 +181,7 @@ class Server:
 
         # Process
         text = post['text']
-        if post['from'] == pytest.msgapi.nocredit_id:
+        if post['from'] == pytest.msgapi['msgapi']['nocredit_id']:
             return web.Response(status=402)
         elif id_ != 'ECHOECHO':
             return web.Response(status=400)
@@ -191,7 +193,8 @@ class Server:
         post = await request.post()
 
         # Check API identity
-        if (post['from'], post['secret']) not in pytest.msgapi.api_identities:
+        if (post['from'], post['secret']) not in \
+                pytest.values['msgapi']['api_identities']:
             return web.Response(status=401)
 
         # Get ID, nonce and box
@@ -199,7 +202,7 @@ class Server:
         nonce, box = binascii.unhexlify(post['nonce']), binascii.unhexlify(post['box'])
 
         # Process
-        if post['from'] == pytest.msgapi.nocredit_id:
+        if post['from'] == pytest.msgapi['msgapi']['nocredit_id']:
             return web.Response(status=402)
         elif id_ != 'ECHOECHO':
             return web.Response(status=400)
@@ -216,7 +219,7 @@ class Server:
 
             # Check API identity
             api_identity = (request.query['from'], request.query['secret'])
-            if api_identity not in pytest.msgapi.api_identities:
+            if api_identity not in pytest.values['msgapi']['api_identities']:
                 return web.Response(status=401)
         except KeyError:
             return web.Response(status=401)
@@ -232,7 +235,7 @@ class Server:
         blob_id = hashlib.sha256(blob).hexdigest()[:32]
 
         # Process
-        if request.query['from'] == pytest.msgapi.nocredit_id:
+        if request.query['from'] == pytest.msgapi['msgapi']['nocredit_id']:
             return web.Response(status=402)
         elif len(blob) == 0:
             return web.Response(status=400)
@@ -249,7 +252,7 @@ class Server:
 
         # Check API identity
         from_, secret = request.query['from'], request.query['secret']
-        if (from_, secret) not in pytest.msgapi.api_identities:
+        if (from_, secret) not in pytest.values['msgapi']['api_identities']:
             return web.Response(status=401)
 
         # Get blob
@@ -273,10 +276,19 @@ def pytest_report_header(config):
     return 'Using event loop: {}'.format(default_event_loop(config=config))
 
 
-def pytest_namespace():
+def values_plugin():
+    values = msgapi_plugin()
+    values['msgapi']['api_identities'] = {
+        (values['msgapi']['id'], values['msgapi']['secret']),
+        (values['msgapi']['nocredit_id'], values['msgapi']['secret'])
+    }
+    return values
+
+
+def msgapi_plugin():
     private = 'private:dd9413d597092b004fedc4895db978425efa328ba1f1ec6729e46e09231b8a7e'
     public = Key.encode(Key.derive_public(Key.decode(private, Key.Type.private)))
-    values = {'msgapi': {
+    msgapi = {'msgapi': {
         'cli_path': os.path.join(
             os.path.dirname(__file__),
             '../threema/gateway/bin/gateway_client.py',
@@ -291,11 +303,12 @@ def pytest_namespace():
         'nocredit_id': 'NOCREDIT',
         'noexist_id': '*NOEXIST',
     }}
-    values['msgapi']['api_identities'] = {
-        (values['msgapi']['id'], values['msgapi']['secret']),
-        (values['msgapi']['nocredit_id'], values['msgapi']['secret'])
-    }
-    return values
+    return msgapi
+
+
+def pytest_configure():
+    pytest.values = values_plugin()
+    pytest.msgapi = msgapi_plugin()
 
 
 def default_event_loop(request=None, config=None):
@@ -315,12 +328,12 @@ def unused_tcp_port():
     Find an unused localhost TCP port from 1024-65535 and return it.
     """
     with closing(socket.socket()) as sock:
-        sock.bind((pytest.msgapi.ip, 0))
+        sock.bind((pytest.msgapi['msgapi']['ip'], 0))
         return sock.getsockname()[1]
 
 
 def identity():
-    return pytest.msgapi.id, pytest.msgapi.secret
+    return pytest.msgapi['msgapi']['id'], pytest.msgapi['msgapi']['secret']
 
 
 @pytest.fixture(scope='module')
@@ -369,7 +382,9 @@ def api_server(request, event_loop, api_server_port, server):
         app.router.add_routes(server.routes)
         runner = web.AppRunner(app)
         await runner.setup()
-        site = web.TCPSite(runner, host=pytest.msgapi.ip, port=port, shutdown_timeout=1.0)
+        site = web.TCPSite(
+            runner, host=pytest.msgapi['msgapi']['ip'], port=port, shutdown_timeout=1.0
+            )
         await site.start()
         return app, runner, site
     app, runner, site = event_loop.run_until_complete(start_server())
@@ -389,7 +404,7 @@ def mock_url(api_server_port):
     """
     Return the URL where the test server can be reached.
     """
-    return 'http://{}:{}'.format(pytest.msgapi.ip, api_server_port)
+    return 'http://{}:{}'.format(pytest.msgapi['msgapi']['ip'], api_server_port)
 
 
 @pytest.fixture(scope='module')
@@ -398,14 +413,14 @@ def connection(request, event_loop, api_server, mock_url):
         # Note: We're not doing anything with the server but obviously the
         # server needs to be started to be able to connect
         return threema.gateway.Connection(
-            identity=pytest.msgapi.id,
-            secret=pytest.msgapi.secret,
-            key=pytest.msgapi.private,
+            identity=pytest.msgapi['msgapi']['id'],
+            secret=pytest.msgapi['msgapi']['secret'],
+            key=pytest.msgapi['msgapi']['private'],
         )
     connection_ = event_loop.run_until_complete(create_connection())
 
     # Patch URLs
-    connection_.urls = {key: value.replace(pytest.msgapi.base_url, mock_url)
+    connection_.urls = {key: value.replace(pytest.msgapi['msgapi']['base_url'], mock_url)
                         for key, value in connection_.urls.items()}
 
     def fin():
@@ -421,15 +436,15 @@ def connection_blocking(request, event_loop, api_server, mock_url):
         # Note: We're not doing anything with the server but obviously the
         # server needs to be started to be able to connect
         return threema.gateway.Connection(
-            identity=pytest.msgapi.id,
-            secret=pytest.msgapi.secret,
-            key=pytest.msgapi.private,
+            identity=pytest.msgapi['msgapi']['id'],
+            secret=pytest.msgapi['msgapi']['secret'],
+            key=pytest.msgapi['msgapi']['private'],
             blocking=True,
         )
     connection_ = event_loop.run_until_complete(create_connection())
 
     # Patch URLs
-    connection_.urls = {key: value.replace(pytest.msgapi.base_url, mock_url)
+    connection_.urls = {key: value.replace(pytest.msgapi['msgapi']['base_url'], mock_url)
                         for key, value in connection_.urls.items()}
 
     def fin():
@@ -442,14 +457,14 @@ def connection_blocking(request, event_loop, api_server, mock_url):
 @pytest.fixture(scope='module')
 def invalid_connection(connection):
     invalid_connection_ = copy.copy(connection)
-    invalid_connection_.id = pytest.msgapi.noexist_id
+    invalid_connection_.id = pytest.msgapi['msgapi']['noexist_id']
     return invalid_connection_
 
 
 @pytest.fixture(scope='module')
 def nocredit_connection(connection):
     nocredit_connection_ = copy.copy(connection)
-    nocredit_connection_.id = pytest.msgapi.nocredit_id
+    nocredit_connection_.id = pytest.msgapi['msgapi']['nocredit_id']
     return nocredit_connection_
 
 
@@ -473,7 +488,7 @@ def cli(api_server, api_server_port, event_loop):
         test_api_mode = 'WARNING: Currently running in test mode!'
 
         # Call CLI in subprocess and get output
-        parameters = [sys.executable, pytest.msgapi.cli_path] + list(args)
+        parameters = [sys.executable, pytest.msgapi['msgapi']['cli_path']] + list(args)
         if isinstance(input, str):
             input = input.encode('utf-8')
 
@@ -529,14 +544,14 @@ def cli(api_server, api_server_port, event_loop):
 @pytest.fixture(scope='module')
 def private_key_file(tmpdir_factory):
     file = tmpdir_factory.mktemp('keys').join('private_key')
-    file.write(pytest.msgapi.private)
+    file.write(pytest.msgapi['msgapi']['private'])
     return str(file)
 
 
 @pytest.fixture(scope='module')
 def public_key_file(tmpdir_factory):
     file = tmpdir_factory.mktemp('keys').join('public_key')
-    file.write(pytest.msgapi.public)
+    file.write(pytest.msgapi['msgapi']['public'])
     return str(file)
 
 
@@ -568,11 +583,11 @@ def callback_server(request, event_loop, connection, callback, callback_server_p
         runner = web.AppRunner(app)
         await runner.setup()
 
-        cert_path = pytest.msgapi.cert_path
+        cert_path = pytest.msgapi['msgapi']['cert_path']
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ssl_context.load_cert_chain(certfile=cert_path)
         site = web.TCPSite(
-            runner, host=pytest.msgapi.ip, port=callback_server_port,
+            runner, host=pytest.msgapi['msgapi']['ip'], port=callback_server_port,
             ssl_context=ssl_context)
         await site.start()
 
@@ -632,7 +647,7 @@ def callback_send(callback_client, callback_server_port, connection):
 
         # Send message
         url = 'https://{}:{}/gateway_callback'.format(
-            pytest.msgapi.ip, callback_server_port)
+            pytest.msgapi['msgapi']['ip'], callback_server_port)
         return await callback_client.post(url, data=params)
 
     return send

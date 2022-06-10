@@ -1,13 +1,16 @@
 Changelog
 *********
 
-`6.0.0`_ (TBD)
---------------
+.. `6.0.0`_ (TBD)
+.. ---------------------
 
-General:
+.. General:
 
-- Add support for Python 3.10
-- Drop support for Python versions below 3.7
+.. - Add support for Python 3.10
+.. - Drop support for Python versions below 3.7
+.. - Major dependencies bump to increase compatibility with other packages
+.. - Updated all tests to work with the newest dependencies
+
 
 `5.0.0`_ (2021-05-17)
 ---------------------

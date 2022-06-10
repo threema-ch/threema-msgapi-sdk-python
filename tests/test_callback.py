@@ -8,7 +8,7 @@ class TestCallback:
     async def test_invalid_message(self, connection, callback_send, raw_message):
         outgoing = raw_message(
             connection=connection,
-            to_id=pytest.msgapi.id,
+            to_id=pytest.msgapi['msgapi']['id'],
             nonce=b'0' * 24,
             message=b'1' * 200
         )
@@ -20,7 +20,7 @@ class TestCallback:
     async def test_delivery_receipt(self, connection, callback_send, callback_receive):
         outgoing = e2e.DeliveryReceipt(
             connection=connection,
-            to_id=pytest.msgapi.id,
+            to_id=pytest.msgapi['msgapi']['id'],
             receipt_type=e2e.DeliveryReceipt.ReceiptType.read,
             message_ids=[b'0' * 8, b'1' * 8],
         )
@@ -36,7 +36,7 @@ class TestCallback:
     async def test_text_message(self, connection, callback_send, callback_receive):
         outgoing = e2e.TextMessage(
             connection,
-            to_id=pytest.msgapi.id,
+            to_id=pytest.msgapi['msgapi']['id'],
             text='私はガラスを食べられます。それは私を傷つけません。!',
         )
         response = await callback_send(outgoing)
@@ -52,7 +52,7 @@ class TestCallback:
     ):
         outgoing = e2e.ImageMessage(
             connection,
-            to_id=pytest.msgapi.id,
+            to_id=pytest.msgapi['msgapi']['id'],
             image_path=server.threema_jpg,
         )
         response = await callback_send(outgoing)
@@ -66,7 +66,7 @@ class TestCallback:
     async def test_video(self, connection, callback_send, callback_receive, server):
         outgoing = e2e.VideoMessage(
             connection,
-            to_id=pytest.msgapi.id,
+            to_id=pytest.msgapi['msgapi']['id'],
             duration=1,
             video_path=server.threema_mp4,
             thumbnail_path=server.threema_jpg,
@@ -86,7 +86,7 @@ class TestCallback:
     ):
         outgoing = e2e.FileMessage(
             connection,
-            to_id=pytest.msgapi.id,
+            to_id=pytest.msgapi['msgapi']['id'],
             file_path=server.threema_jpg,
         )
         response = await callback_send(outgoing)
@@ -102,7 +102,7 @@ class TestCallback:
     ):
         outgoing = e2e.FileMessage(
             connection,
-            to_id=pytest.msgapi.id,
+            to_id=pytest.msgapi['msgapi']['id'],
             file_path=server.threema_jpg,
             thumbnail_path=server.threema_jpg,
         )

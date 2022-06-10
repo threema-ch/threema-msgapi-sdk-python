@@ -37,9 +37,9 @@ if py_version < (3, 7, 0):
 # Note: These are just tools that aren't required, so a version range
 #       is not necessary here.
 tests_require = [
-    'pytest>=3.1.3,<4',
-    'pytest-asyncio>=0.6.0,<0.10',
-    'pytest-cov>=2.5.1,<3',
+    'pytest>=7.1..2,<8',
+    'pytest-asyncio>=0.18.3,<0.19',
+    'pytest-cov>=3.0.0,<4',
     'flake8==4.0.1',
     'isort==5.10.1',
     'collective.checkdocs>=0.2',
@@ -50,8 +50,7 @@ tests_require = [
 setup(
     name='threema.gateway',
     version=get_version(),
-    packages=find_packages(),
-    namespace_packages=['threema'],
+    packages=find_packages(include=["threema.*"]),
     install_requires=[
         'logbook>=1.1.0,<2',
         'libnacl>=1.5.2,<2',

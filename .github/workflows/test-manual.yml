@@ -32,7 +32,7 @@ jobs:
           flake8 .
       - name: Lint with isort
         run: |
-          isort -rc -c . || (isort -rc -df . && return 1)
+          isort -c . || (isort -rc -df . && return 1)
       - name: Lint with checkdocs
         run: |
           python setup.py checkdocs
