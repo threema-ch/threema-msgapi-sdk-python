@@ -91,18 +91,18 @@ class TestCLI:
     @pytest.mark.asyncio
     async def test_send_simple(self, cli):
         id_, secret = pytest.msgapi['msgapi']['id'], pytest.msgapi['msgapi']['secret']
-        output = await cli('send_simple', 'ECHOECHO', id_, secret, input='Hello!')
+        output = await cli('send-simple', 'ECHOECHO', id_, secret, input='Hello!')
         assert output
 
     @pytest.mark.asyncio
     async def test_send_e2e(self, cli, server):
         output_1 = await cli(
-            'send_e2e', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
+            'send-e2e', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
             pytest.msgapi['msgapi']['secret'], pytest.msgapi['msgapi']['private'],
             input='Hello!')
         assert output_1
         output_2 = await cli(
-            'send_e2e', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
+            'send-e2e', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
             pytest.msgapi['msgapi']['secret'], pytest.msgapi['msgapi']['private'], '-k',
             server.echoecho_encoded_key, input='Hello!')
         assert output_2
@@ -112,13 +112,13 @@ class TestCLI:
     async def test_send_image(self, cli, server):
         server.latest_blob_ids = []
         output_1 = await cli(
-            'send_image', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
+            'send-image', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
             pytest.msgapi['msgapi']['secret'], pytest.msgapi['msgapi']['private'],
             server.threema_jpg)
         assert output_1
         assert len(server.latest_blob_ids) == 1
         output_2 = await cli(
-            'send_image', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
+            'send-image', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
             pytest.msgapi['msgapi']['secret'], pytest.msgapi['msgapi']['private'],
             server.threema_jpg, '-k', server.echoecho_encoded_key)
         assert output_2
@@ -129,20 +129,20 @@ class TestCLI:
     async def test_send_video(self, cli, server):
         server.latest_blob_ids = []
         output_1 = await cli(
-            'send_video', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
+            'send-video', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
             pytest.msgapi['msgapi']['secret'], pytest.msgapi['msgapi']['private'],
             server.threema_mp4, server.threema_jpg)
         assert output_1
         assert len(server.latest_blob_ids) == 2
         output_2 = await cli(
-            'send_video', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
+            'send-video', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
             pytest.msgapi['msgapi']['secret'], pytest.msgapi['msgapi']['private'],
             server.threema_mp4, server.threema_jpg, '-k', server.echoecho_encoded_key)
         assert output_2
         assert output_1 == output_2
         assert len(server.latest_blob_ids) == 4
         output = await cli(
-            'send_video', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
+            'send-video', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
             pytest.msgapi['msgapi']['secret'], pytest.msgapi['msgapi']['private'],
             server.threema_mp4, server.threema_jpg, '-d', '1337')
         assert output
@@ -152,26 +152,26 @@ class TestCLI:
     async def test_send_file(self, cli, server):
         server.latest_blob_ids = []
         output_1 = await cli(
-            'send_file', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
+            'send-file', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
             pytest.msgapi['msgapi']['secret'], pytest.msgapi['msgapi']['private'],
             server.threema_jpg)
         assert output_1
         assert len(server.latest_blob_ids) == 1
         output_2 = await cli(
-            'send_file', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
+            'send-file', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
             pytest.msgapi['msgapi']['secret'], pytest.msgapi['msgapi']['private'],
             server.threema_jpg, '-k', server.echoecho_encoded_key)
         assert output_2
         assert output_1 == output_2
         assert len(server.latest_blob_ids) == 2
         output = await cli(
-            'send_file', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
+            'send-file', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
             pytest.msgapi['msgapi']['secret'], pytest.msgapi['msgapi']['private'],
             server.threema_jpg, '-t', server.threema_jpg)
         assert output
         assert len(server.latest_blob_ids) == 4
         output = await cli(
-            'send_file', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
+            'send-file', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
             pytest.msgapi['msgapi']['secret'], pytest.msgapi['msgapi']['private'],
             server.threema_jpg, '-k', server.echoecho_encoded_key, '-t',
             server.threema_jpg)
@@ -253,5 +253,5 @@ class TestCLI:
         with pytest.raises(subprocess.CalledProcessError) as exc_info:
             id_, secret = pytest.msgapi['msgapi']['nocredit_id'],\
                 pytest.msgapi['msgapi']['secret']
-            await cli('send_simple', 'ECHOECHO', id_, secret, input='!')
+            await cli('send-simple', 'ECHOECHO', id_, secret, input='!')
         assert 'Insufficient credits' in exc_info.value.output

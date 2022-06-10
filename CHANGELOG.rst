@@ -1,15 +1,16 @@
 Changelog
 *********
 
-.. `6.0.0`_ (TBD)
-.. ---------------------
+`6.0.0`_ (TBD)
+---------------------
 
-.. General:
+General:
 
-.. - Add support for Python 3.10
-.. - Drop support for Python versions below 3.7
-.. - Major dependencies bump to increase compatibility with other packages
-.. - Updated all tests to work with the newest dependencies
+- Add support for Python 3.10
+- Drop support for Python versions below 3.7
+- Major dependencies bump to increase compatibility with other packages
+- Updated all tests to work with the newest dependencies
+- Changed click syntax to conform with new standard behaviour
 
 
 `5.0.0`_ (2021-05-17)
@@ -77,6 +78,7 @@ Server:
 
 - Initial publication on PyPI
 
+.. _6.0.0: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v5.0.0...v6.0.0
 .. _5.0.0: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v4.0.0...v5.0.0
 .. _4.0.0: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.1.0...v4.0.0
 .. _3.1.0: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.0.6...v3.1.0
