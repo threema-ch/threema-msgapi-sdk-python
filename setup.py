@@ -52,16 +52,16 @@ setup(
     version=get_version(),
     packages=find_packages(include=["threema.*"]),
     install_requires=[
-        'logbook>=1.1.0,<2',
-        'libnacl>=1.5.2,<2',
+        'logbook>=1.5.3,<2',
+        'libnacl>=1.8.0,<2',
         'click>=6.7,<7',  # doesn't seem to follow semantic versioning
-        'aiohttp>=3.7.3,<4',
-        'wrapt>=1.10.10,<2',
+        'aiohttp>=3.8.1,<4',
+        'wrapt>=1.14.1,<2',
     ],
     tests_require=tests_require,
     extras_require={
         'dev': tests_require,
-        'uvloop': ['uvloop>=0.8.0,<2'],
+        'uvloop': ['uvloop>=0.16.0,<2'],
     },
     include_package_data=True,
     entry_points={
