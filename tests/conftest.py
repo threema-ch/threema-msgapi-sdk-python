@@ -1,21 +1,21 @@
 import asyncio
 import asyncio.subprocess
-
-import aiohttp
 import binascii
 import collections
 import copy
 import hashlib
 import hmac
 import os
-import pytest
 import socket
 import ssl
 import subprocess
 import sys
 import time
-from aiohttp import web
 from contextlib import closing
+
+import aiohttp
+import pytest
+from aiohttp import web
 
 import threema.gateway
 from threema.gateway import e2e

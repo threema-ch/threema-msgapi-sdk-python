@@ -1,5 +1,6 @@
-import pytest
 import subprocess
+
+import pytest
 
 from threema.gateway import ReceptionCapability
 from threema.gateway import __version__ as _version
