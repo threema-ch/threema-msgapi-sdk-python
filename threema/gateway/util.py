@@ -2,18 +2,18 @@
 Utility functions.
 """
 import asyncio
-from typing import Set  # noqa
-
 import collections
 import functools
 import inspect
 import io
+import logging
+import os
+from typing import Set  # noqa
+
 import libnacl
 import logbook
 import logbook.compat
 import logbook.more
-import logging
-import os
 import wrapt
 
 from .key import Key

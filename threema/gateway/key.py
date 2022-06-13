@@ -4,6 +4,7 @@ Contains functions to decode, encode and generate keys.
 import enum
 import hashlib
 import hmac
+
 import libnacl.encode
 import libnacl.public
 import libnacl.secret

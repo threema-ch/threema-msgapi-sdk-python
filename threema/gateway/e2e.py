@@ -1,8 +1,6 @@
 """
 Provides classes and functions for the end-to-end encryption mode.
 """
-from typing import Tuple
-
 import abc
 import binascii
 import collections
@@ -12,13 +10,15 @@ import functools
 import hashlib
 import hmac
 import json
+import mimetypes
+import os
+import struct
+from typing import Tuple
+
 import libnacl
 import libnacl.encode
 import libnacl.public
 import libnacl.secret
-import mimetypes
-import os
-import struct
 from aiohttp import web
 
 from . import ReceptionCapability
