@@ -150,7 +150,7 @@ class Server:
         if (from_, secret) not in pytest.values['msgapi']['api_identities']:
             return web.Response(status=401)
         elif id_ == 'ECHOECHO':
-            return web.Response(body=b'text,image,video,file')
+            return web.Response(body=b'text,image,video,file,quatsch')
         elif id_ == '*MOCKING':
             return web.Response(body=b'text,image,video,file')
         return web.Response(status=404)

@@ -11,7 +11,6 @@ __all__ = (
     'IDServerError',
     'GatewayKeyError',
     'KeyServerError',
-    'ReceptionCapabilitiesError',
     'ReceptionCapabilitiesServerError',
     'CreditsServerError',
     'DirectionError',
@@ -117,15 +116,7 @@ class KeyServerError(GatewayKeyError, GatewayServerError):
     }
 
 
-class ReceptionCapabilitiesError(GatewayError):
-    """
-    An invalid reception capability has been returned.
-    """
-
-
-class ReceptionCapabilitiesServerError(
-    ReceptionCapabilitiesError, GatewayServerError
-):
+class ReceptionCapabilitiesServerError(GatewayServerError):
     """
     The server responded with an error code while fetching the reception
     capabilities of a Threema ID.

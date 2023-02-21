@@ -12,7 +12,6 @@ from .exception import (
     IDServerError,
     KeyServerError,
     MessageServerError,
-    ReceptionCapabilitiesError,
     ReceptionCapabilitiesServerError,
 )
 from .key import Key
@@ -36,9 +35,15 @@ class ReceptionCapability(enum.Enum):
     """
     text = 'text'
     image = 'image'
-    video = 'video'
+    group = 'group'
     audio = 'audio'
+    video = 'video'
     file = 'file'
+    poll = 'ballot'
+    one_to_one_audio_call = 'call'
+    one_to_one_video_call = 'videocall'
+    perfect_forward_security = 'pfs'
+    group_call = 'groupcall'
 
 
 @aio_run_proxy
@@ -224,7 +229,8 @@ class Connection(AioRunMixin):
     @async_ttl_cache(ttl=5 * 60)
     async def get_reception_capabilities(self, id_):
         """
-        Get the reception capabilities of a Threema ID.
+        Get the reception capabilities of a Threema ID. Unknown capabilities are
+        being discarded.
 
         Arguments:
             - `id_`: A Threema ID.
@@ -234,13 +240,14 @@ class Connection(AioRunMixin):
         get_coroutine = self._get(self.urls['get_reception_capabilities'].format(id_))
         response = await get_coroutine
         if response.status == 200:
-            try:
-                text = await response.text()
-                return {ReceptionCapability(capability.strip())
-                        for capability in text.split(',')}
-            except ValueError as exc:
-                await response.release()
-                raise ReceptionCapabilitiesError('Invalid reception capability') from exc
+            text = await response.text()
+            capabilities = set()
+            for capability in text.split(','):
+                try:
+                    capabilities.add(ReceptionCapability(capability.strip()))
+                except ValueError:
+                    pass
+            return capabilities
         else:
             await raise_server_error(response, ReceptionCapabilitiesServerError)
 
