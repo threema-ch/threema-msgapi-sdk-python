@@ -38,7 +38,7 @@ if py_version < (3, 7, 0):
 # Note: These are just tools that aren't required, so a version range
 #       is not necessary here.
 tests_require = [
-    'pytest>=7.1..2,<8',
+    'pytest>=7.1.2,<8',
     'pytest-asyncio>=0.18.3,<0.19',
     'pytest-cov>=3.0.0,<4',
     'flake8==4.0.1',
