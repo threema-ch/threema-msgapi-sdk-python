@@ -105,7 +105,7 @@ optional ``dev`` requirements of the project in an editable environment:
 
 .. code-block:: bash
 
-    $ git clone https://github.com/lgrahl/threema-msgapi-sdk-python.git
+    $ git clone https://github.com/threema-ch/threema-msgapi-sdk-python.git
     $ cd threema-msgapi-sdk-python
     $ pip install -e .[dev]
 
@@ -148,10 +148,10 @@ contacts:
 .. _virtualenvwrapper: https://virtualenvwrapper.readthedocs.io/
 .. _libsodium: https://download.libsodium.org/doc/installation/index.html
 
-.. |Travis| image:: https://travis-ci.org/lgrahl/threema-msgapi-sdk-python.svg?branch=master
-   :target: https://travis-ci.org/lgrahl/threema-msgapi-sdk-python
-.. |codecov| image:: https://codecov.io/gh/lgrahl/threema-msgapi-sdk-python/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/lgrahl/threema-msgapi-sdk-python
+.. |Travis| image:: https://travis-ci.org/threema-ch/threema-msgapi-sdk-python.svg?branch=master
+   :target: https://travis-ci.org/threema-ch/threema-msgapi-sdk-python
+.. |codecov| image:: https://codecov.io/gh/threema-ch/threema-msgapi-sdk-python/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/threema-ch/threema-msgapi-sdk-python
 .. |PyPI| image:: https://badge.fury.io/py/threema.gateway.svg
    :target: https://badge.fury.io/py/threema.gateway
 .. _EA456E8BAF0109429583EED83578F667F2F3A5FA: https://keybase.io/dbrgn
