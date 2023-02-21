@@ -79,11 +79,11 @@ Server:
 
 - Initial publication on PyPI
 
-.. _6.0.0: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v5.0.0...v6.0.0
-.. _5.0.0: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v4.0.0...v5.0.0
-.. _4.0.0: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.1.0...v4.0.0
-.. _3.1.0: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.0.6...v3.1.0
-.. _3.0.6: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.0.5...v3.0.6
-.. _3.0.5: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.0.4...v3.0.5
-.. _3.0.4: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/v3.0.2...v3.0.4
-.. _3.0.2: https://github.com/lgrahl/threema-msgapi-sdk-python/compare/e982c74cbe564c76cc58322d3154916ee7f6863b...v3.0.2
+.. _6.0.0: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/v5.0.0...v6.0.0
+.. _5.0.0: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/v4.0.0...v5.0.0
+.. _4.0.0: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/v3.1.0...v4.0.0
+.. _3.1.0: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/v3.0.6...v3.1.0
+.. _3.0.6: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/v3.0.5...v3.0.6
+.. _3.0.5: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/v3.0.4...v3.0.5
+.. _3.0.4: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/v3.0.2...v3.0.4
+.. _3.0.2: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/e982c74cbe564c76cc58322d3154916ee7f6863b...v3.0.2
