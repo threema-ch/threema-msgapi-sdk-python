@@ -1151,7 +1151,7 @@ class FileMessage(Message):
     def __init__(
             self, connection,
             file_content=None, mime_type=None, file_name='file', file_path=None,
-            thumbnail_content=None, thumbnail_path=None,
+            thumbnail_content=None, thumbnail_path=None, caption=None,
             from_data=None, **kwargs
     ):
         super().__init__(connection, Message.Type.file_message,
@@ -1172,6 +1172,7 @@ class FileMessage(Message):
             self._file_path = file_path
             self._thumbnail_content = thumbnail_content
             self._thumbnail_path = thumbnail_path
+            self.caption = caption
         else:
             self._file_content = from_data['file_content']
             self._mime_type = from_data['mime_type']
@@ -1179,6 +1180,7 @@ class FileMessage(Message):
             self._file_path = None
             self._thumbnail_content = from_data['thumbnail_content']
             self._thumbnail_path = None
+            self.caption = from_data['caption']
 
     @property
     def file_content(self):
@@ -1264,6 +1266,10 @@ class FileMessage(Message):
             'i': 0,
         }
 
+        # Add caption (if any)
+        if self.caption:
+            content["d"] = self.caption
+
         # Encrypt and upload thumbnail (if any)
         thumbnail_content = self.thumbnail_content
         if thumbnail_content is not None:
@@ -1310,6 +1316,7 @@ class FileMessage(Message):
         except binascii.Error as exc:
             raise MessageError('Could not convert hex-encoded secret key') from exc
         thumbnail_id = content.get('t')
+        caption = content.get("d")
 
         # Download and decrypt thumbnail (if any)
         if thumbnail_id is not None:
@@ -1336,4 +1343,5 @@ class FileMessage(Message):
             'mime_type': mime_type,
             'file_name': file_name,
             'thumbnail_content': thumbnail_content,
+            'caption': caption,
         }))
