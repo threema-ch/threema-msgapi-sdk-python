@@ -113,7 +113,6 @@ async def encrypt(private_key, public_key):
     connection = _MockConnection(private_key, public_key)
     message = e2e.TextMessage(connection, text=text, to_id='')
     nonce, message = await message.send(get_data_only=True)
-    click.echo()
     click.echo(binascii.hexlify(nonce))
     click.echo(binascii.hexlify(message))
 
