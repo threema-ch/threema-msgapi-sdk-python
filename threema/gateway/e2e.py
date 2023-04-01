@@ -437,8 +437,9 @@ class Message(AioRunMixin, metaclass=abc.ABCMeta):
         # Get content data
         await self.pack(writer)
 
-        # Generate 0 < padding < 256
-        padding_length = randint(1, 255)
+        # Generate 0 < padding < 256; at least 32 bytes of padded_data,
+        # 1 extra byte was written for the message type
+        padding_length = max(randint(1, 255), 32 - (len(writer) - 1))
         # Add padding to data
         writer.writeexactly(bytes([padding_length] * padding_length))
 
