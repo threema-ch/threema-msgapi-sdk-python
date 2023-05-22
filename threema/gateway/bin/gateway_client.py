@@ -121,14 +121,15 @@ async def encrypt(private_key, public_key, text):
 
 @cli.command(short_help='Decrypt a text message.', help="""
 Decrypt standard input using the given recipient PRIVATE KEY and sender PUBLIC KEY.
-The NONCE must be given on the command line, and the box (hex) on standard input.
-Prints the decrypted text message to standard output.
+The NONCE must be given on the command line, and the box (hex) on standard input or
+as fourth argument. Prints the decrypted text message to standard output.
 """)
 @click.argument('private_key')
 @click.argument('public_key')
 @click.argument('nonce')
+@click.argument('message', required=False)
 @util.aio_run
-async def decrypt(private_key, public_key, nonce):
+async def decrypt(private_key, public_key, nonce, message):
     # Get key instances
     private_key = util.read_key_or_key_file(private_key, Key.Type.private)
     public_key = util.read_key_or_key_file(public_key, Key.Type.public)
@@ -136,8 +137,9 @@ async def decrypt(private_key, public_key, nonce):
     # Convert nonce to bytes
     nonce = binascii.unhexlify(nonce)
 
-    # Read message from stdin and convert to bytes
-    message = click.get_text_stream('stdin').read()
+    # Read message from stdin or arg and convert to bytes
+    if message is None:
+        message = click.get_text_stream('stdin').read()
     message = binascii.unhexlify(message)
 
     # Unpack message
