@@ -100,34 +100,36 @@ and then the encrypted box (hex).
 """)
 @click.argument('private_key')
 @click.argument('public_key')
+@click.argument('text', required=False)
 @util.aio_run
-async def encrypt(private_key, public_key):
+async def encrypt(private_key, public_key, text):
     # Get key instances
     private_key = util.read_key_or_key_file(private_key, Key.Type.private)
     public_key = util.read_key_or_key_file(public_key, Key.Type.public)
 
-    # Read text from stdin
-    text = click.get_text_stream('stdin').read()
+    # Read text from stdin or use the text
+    if text is None:
+        text = click.get_text_stream('stdin').read()
 
     # Print nonce and message as hex
     connection = _MockConnection(private_key, public_key)
     message = e2e.TextMessage(connection, text=text, to_id='')
     nonce, message = await message.send(get_data_only=True)
-    click.echo()
     click.echo(binascii.hexlify(nonce))
     click.echo(binascii.hexlify(message))
 
 
 @cli.command(short_help='Decrypt a text message.', help="""
 Decrypt standard input using the given recipient PRIVATE KEY and sender PUBLIC KEY.
-The NONCE must be given on the command line, and the box (hex) on standard input.
-Prints the decrypted text message to standard output.
+The NONCE must be given on the command line, and the box (hex) on standard input or
+as fourth argument. Prints the decrypted text message to standard output.
 """)
 @click.argument('private_key')
 @click.argument('public_key')
 @click.argument('nonce')
+@click.argument('message', required=False)
 @util.aio_run
-async def decrypt(private_key, public_key, nonce):
+async def decrypt(private_key, public_key, nonce, message):
     # Get key instances
     private_key = util.read_key_or_key_file(private_key, Key.Type.private)
     public_key = util.read_key_or_key_file(public_key, Key.Type.public)
@@ -135,8 +137,9 @@ async def decrypt(private_key, public_key, nonce):
     # Convert nonce to bytes
     nonce = binascii.unhexlify(nonce)
 
-    # Read message from stdin and convert to bytes
-    message = click.get_text_stream('stdin').read()
+    # Read message from stdin or arg and convert to bytes
+    if message is None:
+        message = click.get_text_stream('stdin').read()
     message = binascii.unhexlify(message)
 
     # Unpack message
@@ -247,6 +250,7 @@ Prints the message ID on success.
 @click.argument('from')
 @click.argument('secret')
 @click.argument('private_key')
+@click.argument('text', required=False)
 @click.option('-k', '--public-key', help="""
 The public key of the recipient. Will be fetched automatically if not provided.
 """)
@@ -260,8 +264,11 @@ async def send_e2e(ctx, **arguments):
     else:
         public_key = None
 
-    # Read message from stdin
-    text = click.get_text_stream('stdin').read().strip()
+    # Read message from arguments or stdin
+    if arguments['text'] is not None:
+        text = arguments['text']
+    else:
+        text = click.get_text_stream('stdin').read().strip()
 
     # Create connection
     connection = Connection(
