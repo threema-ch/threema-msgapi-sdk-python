@@ -36,12 +36,24 @@ _logging_levels = {
 
 # Apply mock URL when starting CLI in debug mode
 _test_port = os.environ.get('THREEMA_TEST_API')
+_api_url = os.environ.get('GATEWAY_API_URL')
 if _test_port is not None:
+    if _api_url is not None:
+        raise RuntimeError('GATEWAY_API_URL cannot be set alongside THREEMA_TEST_API')
     _mock_url = 'http://{}:{}'.format('127.0.0.1', _test_port)
     Connection.urls = {key: value.replace('https://msgapi.threema.ch', _mock_url)
                        for key, value in Connection.urls.items()}
     click.echo(('WARNING: Currently running in test mode!'
                 'The Threema Gateway Server will not be contacted!'), err=True)
+else:
+    if _api_url is not None:
+        if not _api_url.startswith('https://'):
+            raise RuntimeError('GATEWAY_API_URL must begin with "https://"')
+        Connection.urls = {key: value.replace(
+            'https://msgapi.threema.ch',
+            _api_url.rstrip('/')
+        )
+            for key, value in Connection.urls.items()}
 
 
 class _MockConnection(AioRunMixin):
