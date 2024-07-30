@@ -72,7 +72,7 @@ the Threema gateway. Run the following command to see usage information:
 Setting a different API url
 ---------------------------
 
-The default MsgApi URL points to https://msgapi.threema.ch/.
+The default MsgApi URL points to ``https://msgapi.threema.ch/``.
 
 If you are a Threema OnPrem customer or have another reason
 to use a different MsgApi endpoint, you may set an environment variable as follows:

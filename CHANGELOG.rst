@@ -1,6 +1,14 @@
 Changelog
 *********
 
+`7.1.0`_ (2022-06-13)
+---------------------
+
+- Add `GATEWAY_API_URL` environment variable to support custom Message API endpoints
+- Add support for Python 3.12
+- Drop support for Python versions below 3.8
+- Major dependencies bump to increase compatibility with other packages
+
 `7.0.1`_ (2023-02-21)
 
 - Fix parsing of unknown reception capabilities
@@ -85,6 +93,7 @@ Server:
 
 - Initial publication on PyPI
 
+.. _7.1.0: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/v7.0.1...v7.1.0
 .. _7.0.1: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/v6.0.0...v7.0.1
 .. _6.0.0: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/v5.0.0...v6.0.0
 .. _5.0.0: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/v4.0.0...v5.0.0
