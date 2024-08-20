@@ -155,7 +155,7 @@ class TestCLI:
         output_1 = await cli(
             'send-file', 'ECHOECHO', pytest.msgapi['msgapi']['id'],
             pytest.msgapi['msgapi']['secret'], pytest.msgapi['msgapi']['private'],
-            server.threema_jpg)
+            server.threema_jpg, '-c', 'See the picture?')
         assert output_1
         assert len(server.latest_blob_ids) == 1
         output_2 = await cli(

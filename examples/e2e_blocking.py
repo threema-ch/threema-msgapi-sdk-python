@@ -107,7 +107,8 @@ def send_file(connection):
     message = FileMessage(
         connection=connection,
         to_id='ECHOECHO',
-        file_path='res/some_file.zip'
+        file_path='res/some_file.zip',
+        caption="Here's that file I mentioned",
     )
     return message.send()
 

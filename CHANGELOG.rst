@@ -7,6 +7,7 @@ Changelog
 - Add support for Python 3.10/3.11/3.12
 - Drop support for Python versions below 3.8
 - Bump dependencies
+- Add `caption` to file message and to the CLI
 
 `7.0.1`_ (2023-02-21)
 ---------------------
