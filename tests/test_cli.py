@@ -32,7 +32,7 @@ class TestCLI:
         assert 'Invalid key type' in exc_info.value.output
 
     @pytest.mark.asyncio
-    async def test_encrypt_decrypt(self, cli):
+    async def test_encrypt_decrypt_stdin(self, cli):
         input = '私はガラスを食べられます。それは私を傷つけません。'
         output = await cli(
             'encrypt', pytest.msgapi['msgapi']['private'],
@@ -41,6 +41,18 @@ class TestCLI:
         output = await cli(
             'decrypt', pytest.msgapi['msgapi']['private'],
             pytest.msgapi['msgapi']['public'], nonce, input=data)
+        assert input in output
+
+    @pytest.mark.asyncio
+    async def test_encrypt_decrypt_parameter(self, cli):
+        input = '私はガラスを食べられます。それは私を傷つけません。'
+        output = await cli(
+            'encrypt', pytest.msgapi['msgapi']['private'],
+            pytest.msgapi['msgapi']['public'], input=input)
+        nonce, data = output.splitlines()
+        output = await cli(
+            'decrypt', pytest.msgapi['msgapi']['private'],
+            pytest.msgapi['msgapi']['public'], nonce, data)
         assert input in output
 
     @pytest.mark.asyncio

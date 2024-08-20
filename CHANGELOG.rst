@@ -8,6 +8,8 @@ Changelog
 - Drop support for Python versions below 3.8
 - Bump dependencies
 - Add `caption` to file message and to the CLI
+- Add an optional parameter to the CLI for `send-simple` and `send-e2e` to allow
+  passing the text as an argument instead from stdin.
 
 `7.0.1`_ (2023-02-21)
 ---------------------
