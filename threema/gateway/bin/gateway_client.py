@@ -383,7 +383,7 @@ async def send_video(ctx, **arguments):
 
 
 @cli.command(short_help='Send a file using end-to-end mode.', help="""
-Encrypt and send a file to the given ID, optionally with a thumbnail.
+Encrypt and send a file to the given ID, optionally with a thumbnail and/ or caption.
 FROM is the API identity and SECRET is the API secret.
 FILE_PATH is a relative or absolute path to a file.
 Prints the message ID on success.
@@ -398,6 +398,9 @@ The public key of the recipient. Will be fetched automatically if not provided.
 """)
 @click.option('-t', '--thumbnail-path', help="""
 The relative or absolute path to a thumbnail.
+""")
+@click.option('-c', '--caption', help="""
+An optional caption to send alongside the attached file.
 """)
 @click.pass_context
 @util.aio_run
@@ -424,7 +427,8 @@ async def send_file(ctx, **arguments):
             to_id=arguments['to'],
             key=public_key,
             file_path=arguments['file_path'],
-            thumbnail_path=arguments['thumbnail_path']
+            thumbnail_path=arguments['thumbnail_path'],
+            caption=arguments['caption']
         )
 
         # Send message
