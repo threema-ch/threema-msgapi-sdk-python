@@ -94,40 +94,45 @@ def version():
 
 
 @cli.command(short_help='Encrypt a text message.', help="""
-Encrypt standard input using the given sender PRIVATE KEY and recipient
-PUBLIC KEY. Prints two lines to standard output: first the nonce (hex),
-and then the encrypted box (hex).
+Encrypt standard input (or alternatively [TEXT]) using the given sender PRIVATE
+KEY and recipient PUBLIC KEY.
+
+Prints two lines to standard output: First the nonce (hex), and then the
+encrypted box (hex).
 """)
 @click.argument('private_key')
 @click.argument('public_key')
+@click.argument('text', required=False)
 @util.aio_run
-async def encrypt(private_key, public_key):
+async def encrypt(private_key, public_key, text):
     # Get key instances
     private_key = util.read_key_or_key_file(private_key, Key.Type.private)
     public_key = util.read_key_or_key_file(public_key, Key.Type.public)
 
-    # Read text from stdin
-    text = click.get_text_stream('stdin').read()
+    # Read text
+    if text is None:
+        text = click.get_text_stream('stdin').read()
 
     # Print nonce and message as hex
     connection = _MockConnection(private_key, public_key)
     message = e2e.TextMessage(connection, text=text, to_id='')
     nonce, message = await message.send(get_data_only=True)
-    click.echo()
     click.echo(binascii.hexlify(nonce))
     click.echo(binascii.hexlify(message))
 
 
 @cli.command(short_help='Decrypt a text message.', help="""
-Decrypt standard input using the given recipient PRIVATE KEY and sender PUBLIC KEY.
-The NONCE must be given on the command line, and the box (hex) on standard input.
+Decrypt standard input (or alternatively [MESSAGE]) using the given recipient
+PRIVATE KEY and sender PUBLIC KEY. The NONCE must be given on the command line.
+
 Prints the decrypted text message to standard output.
 """)
 @click.argument('private_key')
 @click.argument('public_key')
 @click.argument('nonce')
+@click.argument('message', required=False)
 @util.aio_run
-async def decrypt(private_key, public_key, nonce):
+async def decrypt(private_key, public_key, nonce, message):
     # Get key instances
     private_key = util.read_key_or_key_file(private_key, Key.Type.private)
     public_key = util.read_key_or_key_file(public_key, Key.Type.public)
@@ -135,8 +140,9 @@ async def decrypt(private_key, public_key, nonce):
     # Convert nonce to bytes
     nonce = binascii.unhexlify(nonce)
 
-    # Read message from stdin and convert to bytes
-    message = click.get_text_stream('stdin').read()
+    # Read message and convert to bytes
+    if message is None:
+        message = click.get_text_stream('stdin').read()
     message = binascii.unhexlify(message)
 
     # Unpack message
@@ -149,13 +155,12 @@ async def decrypt(private_key, public_key, nonce):
         raise TypeError('Cannot decrypt message type {} in CLI'.format(message.type))
 
     # Print text
-    click.echo()
     click.echo(message.text)
 
 
 @cli.command(short_help='Generate a new key pair.', help="""
-Generate a new key pair and write the PRIVATE and PUBLIC keys to
-the respective files.
+Generate a new key pair and write the PRIVATE and PUBLIC keys to the respective
+files.
 """)
 @click.argument('private_key_file')
 @click.argument('public_key_file')
@@ -172,6 +177,7 @@ def generate(private_key_file, public_key_file):
 # noinspection PyShadowingBuiltins
 @cli.command(short_help='Hash an email address or phone number.', help="""
 Hash an email address or a phone number for identity lookup.
+
 Prints the hash in hex.
 """)
 @click.option('-e', '--email', help='An email address.')
@@ -210,18 +216,24 @@ def derive(private_key):
 
 
 @cli.command(short_help='Send a text message using simple mode.', help="""
-Send atext  message from standard input with server-side encryption to the given ID.
-FROM is the API identity and SECRET is the API secret.
+Send a text message from standard input (or alternatively [TEXT]) with
+server-side encryption to the given ID. FROM is the API identity and SECRET is
+the API secret.
+
 Prints the message ID on success.
 """)
 @click.argument('to')
 @click.argument('from')
 @click.argument('secret')
+@click.argument('text', required=False)
 @click.pass_context
 @util.aio_run
 async def send_simple(ctx, **arguments):
-    # Read message from stdin
-    text = click.get_text_stream('stdin').read().strip()
+    # Read message
+    if arguments['text'] is not None:
+        text = arguments['text']
+    else:
+        text = click.get_text_stream('stdin').read().strip()
 
     # Create connection
     connection = Connection(arguments['from'], arguments['secret'], **ctx.obj)
@@ -234,19 +246,20 @@ async def send_simple(ctx, **arguments):
         )
 
         # Send message
-        click.echo()
         click.echo(await message.send())
 
 
 @cli.command(short_help='Send a text message using end-to-end mode.', help="""
-Encrypt standard input and send the text message to the given ID.
-FROM is the API identity and SECRET is the API secret.
+Encrypt and send a text message from standard input (or alternatively [TEXT]) to
+the given ID. FROM is the API identity and SECRET is the API secret.
+
 Prints the message ID on success.
 """)
 @click.argument('to')
 @click.argument('from')
 @click.argument('secret')
 @click.argument('private_key')
+@click.argument('text', required=False)
 @click.option('-k', '--public-key', help="""
 The public key of the recipient. Will be fetched automatically if not provided.
 """)
@@ -260,8 +273,11 @@ async def send_e2e(ctx, **arguments):
     else:
         public_key = None
 
-    # Read message from stdin
-    text = click.get_text_stream('stdin').read().strip()
+    # Read message
+    if arguments['text'] is not None:
+        text = arguments['text']
+    else:
+        text = click.get_text_stream('stdin').read().strip()
 
     # Create connection
     connection = Connection(
@@ -281,14 +297,14 @@ async def send_e2e(ctx, **arguments):
         )
 
         # Send message
-        click.echo()
         click.echo(await message.send())
 
 
 @cli.command(short_help='Send an image using end-to-end mode.', help="""
-Encrypt and send an image ('jpeg' or 'png') to the given ID.
-FROM is the API identity and SECRET is the API secret.
-IMAGE_PATH is a relative or absolute path to an image.
+Encrypt and send an image ('jpeg' or 'png') to the given ID. FROM is the API
+identity and SECRET is the API secret. IMAGE_PATH is a relative or absolute path
+to an image.
+
 Prints the message ID on success.
 """)
 @click.argument('to')
