@@ -38,14 +38,13 @@ if py_version < (3, 7, 0):
 # Note: These are just tools that aren't required, so a version range
 #       is not necessary here.
 tests_require = [
-    'pytest>=7.1.2,<8',
-    'pytest-asyncio>=0.18.3,<0.19',
-    'pytest-cov>=3.0.0,<4',
-    'flake8==4.0.1',
-    'isort==5.10.1',
+    'pytest>=8.3.2,<9',
+    'pytest-asyncio>=0.21.2,<0.23',
+    'flake8==7.1.1',
+    'isort==5.13.2',
     'collective.checkdocs>=0.2,<0.3',
-    'Pygments>=2.12.0',  # required by checkdocs
-    'mypy==0.961',
+    'Pygments>=2.18.0',  # required by checkdocs
+    'mypy==1.11.1',
 ]
 
 setup(
@@ -54,7 +53,7 @@ setup(
     packages=find_packages(include=["threema.*"]),
     install_requires=[
         'logbook>=1.1.0,<2',
-        'libnacl>=1.5.2,<2',
+        'libnacl>=1.5.2,<3',
         'click>=8,<9',
         'aiohttp>=3.7.3,<4',
         'wrapt>=1.10.10,<2',
@@ -73,7 +72,7 @@ setup(
 
     # PyPI metadata
     author='Lennart Grahl',
-    author_email='lennart.grahl@gmail.com',
+    author_email='lennart.grahl@threema.ch',
     description=('An API for the Threema gateway service to send and receive '
                  'messages including text, images, files and delivery reports.'),
     long_description=long_description,

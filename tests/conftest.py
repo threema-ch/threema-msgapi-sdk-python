@@ -353,13 +353,9 @@ def event_loop(request):
     """
     default_event_loop(request=request)
 
-    # Close previous event loop
-    policy = asyncio.get_event_loop_policy()
-    policy.get_event_loop().close()
-
     # Create new event loop
-    _event_loop = policy.new_event_loop()
-    policy.set_event_loop(_event_loop)
+    _event_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(_event_loop)
 
     def fin():
         _event_loop.close()
@@ -383,8 +379,7 @@ def api_server(request, event_loop, api_server_port, server):
         runner = web.AppRunner(app)
         await runner.setup()
         site = web.TCPSite(
-            runner, host=pytest.msgapi['msgapi']['ip'], port=port, shutdown_timeout=1.0
-            )
+            runner, host=pytest.msgapi['msgapi']['ip'], port=port, shutdown_timeout=1.0)
         await site.start()
         return app, runner, site
     app, runner, site = event_loop.run_until_complete(start_server())

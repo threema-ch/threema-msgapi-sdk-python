@@ -1,4 +1,5 @@
 import enum
+import io
 
 import aiohttp
 import libnacl.encode
@@ -293,7 +294,7 @@ class Connection(AioRunMixin):
 
         Return the hex-encoded ID of the blob.
         """
-        return await self._upload(self.urls['upload_blob'], data)
+        return await self._upload(self.urls['upload_blob'], data=io.BytesIO(data))
 
     async def download(self, blob_id):
         """
