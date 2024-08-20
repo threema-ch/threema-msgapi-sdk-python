@@ -11,6 +11,8 @@ Changelog
 - Add an optional parameter to the CLI for `send-simple` and `send-e2e` to allow
   passing the text as an argument instead from stdin.
 - Make the random padding spec compliant
+- Add an optional environment variable `GATEWAY_API_URL` to override the Gateway
+  API Endpoint URL
 
 `7.0.1`_ (2023-02-21)
 ---------------------
