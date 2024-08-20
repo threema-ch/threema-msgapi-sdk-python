@@ -67,6 +67,21 @@ the Threema gateway. Run the following command to see usage information:
 
     $ threema-gateway --help
 
+Gateway API Endpoint
+--------------------
+
+The default Gateway API Endpoint URL used is https://msgapi.threema.ch/.
+
+If you are a Threema OnPrem customer or have another reason to use a different
+Gateway API Endpoint, you may override the URL as follows:
+
+.. code-block:: bash
+
+    $ export GATEWAY_API_URL=https://onprem.myinstance.tld/msgapi
+
+Any following calls to ``threema-gateway`` will then use the supplied Gateway
+API Endpoint URL.
+
 Examples
 ********
 
