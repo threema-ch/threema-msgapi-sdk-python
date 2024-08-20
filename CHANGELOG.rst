@@ -1,7 +1,15 @@
 Changelog
 *********
 
+`8.0.0`_ (2024-08-21)
+---------------------
+
+- Add support for Python 3.10/3.11/3.12
+- Drop support for Python versions below 3.8
+- Bump dependencies
+
 `7.0.1`_ (2023-02-21)
+---------------------
 
 - Fix parsing of unknown reception capabilities
 - Add new `ReceptionCapability` items
@@ -85,6 +93,7 @@ Server:
 
 - Initial publication on PyPI
 
+.. _8.0.0: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/v7.0.1...v8.0.0
 .. _7.0.1: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/v6.0.0...v7.0.1
 .. _6.0.0: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/v5.0.0...v6.0.0
 .. _5.0.0: https://github.com/threema-ch/threema-msgapi-sdk-python/compare/v4.0.0...v5.0.0

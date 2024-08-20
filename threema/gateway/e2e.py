@@ -13,7 +13,10 @@ import json
 import mimetypes
 import os
 import struct
-from typing import Tuple
+from typing import (
+    Optional,
+    Tuple,
+)
 
 import libnacl
 import libnacl.encode
@@ -61,7 +64,7 @@ BLOB_ID_LENGTH = 16
 MAX_HTTP_REQUEST_SIZE = 16384
 
 
-def _pk_encrypt(key_pair: Tuple[Key, Key], data: bytes, nonce: bytes = None):
+def _pk_encrypt(key_pair: Tuple[Key, Key], data: bytes, nonce: Optional[bytes] = None):
     """
     Encrypt data by using public-key encryption.
 

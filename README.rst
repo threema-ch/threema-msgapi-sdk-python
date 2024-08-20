@@ -1,8 +1,6 @@
 Threema Gateway API
 ===================
 
-|Travis| |codecov|
-
 **threema-gateway** is a Python 3 module for the Threema gateway service.
 This API can be used to send and receive text messages to and from any Threema
 user.
@@ -125,34 +123,7 @@ You should also run the type checker that might catch some additional bugs:
 
     $ mypy setup.py tests examples threema
 
-Reporting Security Issues
-*************************
-
-Please report security issues directly to one or both of the following
-contacts:
-
--  Danilo Bargen
-
-   -  Email: mail@dbrgn.ch
-   -  Threema: EBEP4UCA
-   -  GPG: `EA456E8BAF0109429583EED83578F667F2F3A5FA`_
-
--  Lennart Grahl
-
-   -  Email: lennart.grahl@gmail.com
-   -  Threema: MSFVEW6C
-   -  GPG: `3FDB14868A2B36D638F3C495F98FBED10482ABA6`_
-
 .. _asyncio: https://docs.python.org/3/library/asyncio.html
 .. _venv: https://docs.python.org/3/library/venv.html
 .. _virtualenvwrapper: https://virtualenvwrapper.readthedocs.io/
 .. _libsodium: https://download.libsodium.org/doc/installation/index.html
-
-.. |Travis| image:: https://travis-ci.org/threema-ch/threema-msgapi-sdk-python.svg?branch=master
-   :target: https://travis-ci.org/threema-ch/threema-msgapi-sdk-python
-.. |codecov| image:: https://codecov.io/gh/threema-ch/threema-msgapi-sdk-python/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/threema-ch/threema-msgapi-sdk-python
-.. |PyPI| image:: https://badge.fury.io/py/threema.gateway.svg
-   :target: https://badge.fury.io/py/threema.gateway
-.. _EA456E8BAF0109429583EED83578F667F2F3A5FA: https://keybase.io/dbrgn
-.. _3FDB14868A2B36D638F3C495F98FBED10482ABA6: https://keybase.io/lgrahl

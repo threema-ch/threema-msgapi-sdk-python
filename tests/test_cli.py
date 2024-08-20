@@ -252,7 +252,7 @@ class TestCLI:
     @pytest.mark.asyncio
     async def test_insufficient_credits(self, cli):
         with pytest.raises(subprocess.CalledProcessError) as exc_info:
-            id_, secret = pytest.msgapi['msgapi']['nocredit_id'],\
+            id_, secret = pytest.msgapi['msgapi']['nocredit_id'], \
                 pytest.msgapi['msgapi']['secret']
             await cli('send-simple', 'ECHOECHO', id_, secret, input='!')
         assert 'Insufficient credits' in exc_info.value.output

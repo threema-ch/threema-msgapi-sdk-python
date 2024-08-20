@@ -19,7 +19,7 @@ There are two main modes of operation:
 
 The mode that you can use depends on the way your account was set up.
 
-.. moduleauthor:: Lennart Grahl <lennart.grahl@gmail.com>
+.. moduleauthor:: Lennart Grahl <lennart.grahl@threema.ch>
 """
 import itertools
 
@@ -28,7 +28,7 @@ from . import exception as _exception
 from ._gateway import *  # noqa
 from .exception import *  # noqa
 
-__author__ = 'Lennart Grahl <lennart.grahl@gmail.com>'
+__author__ = 'Lennart Grahl <lennart.grahl@threema.ch>'
 __status__ = 'Production'
 __version__ = '7.0.1'
 feature_level = 3
