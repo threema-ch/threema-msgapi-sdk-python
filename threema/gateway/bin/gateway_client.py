@@ -359,10 +359,11 @@ async def send_image(ctx, **arguments):
 
 
 @cli.command(short_help='Send a video using end-to-end mode.', help="""
-Encrypt and send a video ('mp4') including a thumbnail to the given ID.
-FROM is the API identity and SECRET is the API secret.
-VIDEO_PATH is a relative or absolute path to a video.
-THUMBNAIL_PATH is a relative or absolute path to a thumbnail.
+Encrypt and send a video ('mp4') including a thumbnail to the given ID. FROM is
+the API identity and SECRET is the API secret. VIDEO_PATH is a relative or
+absolute path to a video. THUMBNAIL_PATH is a relative or absolute path to a
+thumbnail.
+
 Prints the message ID on success.
 """)
 @click.argument('to')
@@ -411,9 +412,10 @@ async def send_video(ctx, **arguments):
 
 
 @cli.command(short_help='Send a file using end-to-end mode.', help="""
-Encrypt and send a file to the given ID, optionally with a thumbnail and/ or caption.
-FROM is the API identity and SECRET is the API secret.
-FILE_PATH is a relative or absolute path to a file.
+Encrypt and send a file to the given ID, optionally with a thumbnail and/ or
+caption. FROM is the API identity and SECRET is the API secret. FILE_PATH is a
+relative or absolute path to a file.
+
 Prints the message ID on success.
 """)
 @click.argument('to')
@@ -464,9 +466,9 @@ async def send_file(ctx, **arguments):
 
 
 @cli.command(short_help='Lookup a Threema ID or the public key.', help="""
-Lookup the public key of the Threema ID or the ID linked to either the
-given email address or the given phone number.
-FROM is the API identity and SECRET is the API secret.
+Lookup the public key of the Threema ID or the ID linked to either the given
+email address or the given phone number. FROM is the API identity and SECRET is
+the API secret.
 """)
 @click.argument('from')
 @click.argument('secret')
@@ -497,8 +499,9 @@ async def lookup(ctx, **arguments):
 
 
 @cli.command(short_help='Lookup the reception capabilities of a Threema ID', help="""
-Lookup the reception capabilities of a Threema ID.
-FROM is the API identity and SECRET is the API secret.
+Lookup the reception capabilities of a Threema ID. FROM is the API identity and
+SECRET is the API secret.
+
 Prints a set of capabilities in alphabetical order on success.
 """)
 @click.argument('from')
@@ -518,8 +521,8 @@ async def capabilities(ctx, **arguments):
 
 # noinspection PyShadowingBuiltins
 @cli.command(short_help='Get the number of credits left on the account', help="""
-Retrieve the number of credits left on the used account.
-FROM is the API identity and SECRET is the API secret.
+Retrieve the number of credits left on the used account. FROM is the API
+identity and SECRET is the API secret.
 """)
 @click.argument('from')
 @click.argument('secret')
