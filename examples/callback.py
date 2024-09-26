@@ -1,3 +1,4 @@
+import functools
 import ssl
 
 import logbook
@@ -15,6 +16,15 @@ async def handle_message(message):
     print('Got message ({}): {}'.format(repr(message), message))
 
 
+async def on_startup(connection, application):
+    message = e2e.TextMessage(
+        connection=connection,
+        to_id='ECHOECHO',
+        text='Hi!'
+    )
+    await message.send()
+
+
 async def create_application():
     # Create connection instance
     connection = Connection(
@@ -23,10 +33,16 @@ async def create_application():
         key='private:YOUR_PRIVATE_KEY'
     )
 
-    # Create the application and register the handler for incoming messages
+    # Create the web server application
     application = e2e.create_application(connection)
+
+    # Register the handler for incoming messages
     e2e.add_callback_route(
         connection, application, handle_message, path='/gateway_callback')
+
+    # Register startup hook (to send an outgoing message in this example)
+    application.on_startup.append(functools.partial(on_startup, connection))
+
     return application
 
 
