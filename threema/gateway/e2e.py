@@ -1297,7 +1297,7 @@ class FileMessage(Message):
     async def unpack(cls, connection, parameters, key_pair, reader):
         # Get payload
         try:
-            content = bytes(reader.readexactly(len(reader))).decode('ascii')
+            content = bytes(reader.readexactly(len(reader))).decode('utf-8')
         except UnicodeError as exc:
             raise MessageError('Could not decode JSON') from exc
 
