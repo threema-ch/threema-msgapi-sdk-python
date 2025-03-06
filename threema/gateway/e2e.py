@@ -221,7 +221,7 @@ async def handle_callback(context, request):
             raise CallbackError(400, str(exc)) from exc
 
         # Pass message to handler
-        await context.message_handler(message)
+        await context.message_handler(message, context.connection)
 
         # Respond with 'OK'
         return web.Response(status=200)

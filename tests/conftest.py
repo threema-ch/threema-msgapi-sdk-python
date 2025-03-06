@@ -558,7 +558,7 @@ def callback(event_loop, connection):
     async def create_callback():
         queue = asyncio.Queue()
 
-        async def handle_message(message):
+        async def handle_message(message, conn):
             await queue.put(message)
 
         return Callback(queue, handle_message)

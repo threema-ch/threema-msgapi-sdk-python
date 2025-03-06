@@ -74,3 +74,6 @@ gen
 
 # MyPy Cache
 .mypy_cache/
+
+# macos
+.DS_Store
