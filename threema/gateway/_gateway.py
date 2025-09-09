@@ -28,6 +28,8 @@ __all__ = (
     'Connection',
 )
 
+_DEFAULT_BASE_URL = "https://msgapi.threema.ch"
+
 
 @enum.unique
 class ReceptionCapability(enum.Enum):
@@ -79,6 +81,8 @@ class Connection(AioRunMixin):
         - `session`: An optional :class:`aiohttp.ClientSession`.
         - `session_kwargs`: Additional key value arguments passed to the
           client session on each call to `get` and `post`.
+        - `base_url`: Base URL of the Threema Gateway. Defaults to
+          "https://msgapi.threema.ch".
     """
     async_functions = {
         '__exit__',
@@ -91,24 +95,12 @@ class Connection(AioRunMixin):
         'upload',
         'download',
     }
-    urls = {
-        'get_public_key': 'https://msgapi.threema.ch/pubkeys/{}',
-        'get_id_by_phone': 'https://msgapi.threema.ch/lookup/phone/{}',
-        'get_id_by_phone_hash': 'https://msgapi.threema.ch/lookup/phone_hash/{}',
-        'get_id_by_email': 'https://msgapi.threema.ch/lookup/email/{}',
-        'get_id_by_email_hash': 'https://msgapi.threema.ch/lookup/email_hash/{}',
-        'get_reception_capabilities': 'https://msgapi.threema.ch/capabilities/{}',
-        'get_credits': 'https://msgapi.threema.ch/credits',
-        'send_simple': 'https://msgapi.threema.ch/send_simple',
-        'send_e2e': 'https://msgapi.threema.ch/send_e2e',
-        'upload_blob': 'https://msgapi.threema.ch/upload_blob',
-        'download_blob': 'https://msgapi.threema.ch/blobs/{}'
-    }
 
     def __init__(
             self, identity, secret,
             key=None, key_file=None,
             blocking=False, session=None, session_kwargs=None,
+            base_url=None,
     ):
         super().__init__(blocking=blocking)
         self._session = session if session is not None else aiohttp.ClientSession()
@@ -119,6 +111,26 @@ class Connection(AioRunMixin):
         self.secret = secret
         self.key = key
         self.key_file = key_file
+
+        self._base_url = (base_url or _DEFAULT_BASE_URL).rstrip('/')
+        self.urls = self._build_urls(self._base_url)
+
+    @staticmethod
+    def _build_urls(base_url: str) -> dict:
+        return {
+            'get_public_key': f'{base_url}/pubkeys/{{}}',
+            'get_id_by_phone': f'{base_url}/lookup/phone/{{}}',
+            'get_id_by_phone_hash': f'{base_url}/lookup/phone_hash/{{}}',
+            'get_id_by_email': f'{base_url}/lookup/email/{{}}',
+            'get_id_by_email_hash': f'{base_url}/lookup/email_hash/{{}}',
+            'get_reception_capabilities': f'{base_url}/capabilities/{{}}',
+            'get_credits': f'{base_url}/credits',
+            'send_simple': f'{base_url}/send_simple',
+            'send_e2e': f'{base_url}/send_e2e',
+            'upload_blob': f'{base_url}/upload_blob',
+            'download_blob': f'{base_url}/blobs/{{}}'
+        }
+
 
     def __enter__(self):
         if not self.blocking:

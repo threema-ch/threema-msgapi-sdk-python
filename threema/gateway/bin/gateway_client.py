@@ -34,26 +34,47 @@ _logging_levels = {
     7: logbook.TRACE,
 }
 
-# Apply mock URL when starting CLI in debug mode
-_test_port = os.environ.get('THREEMA_TEST_API')
-_api_url = os.environ.get('GATEWAY_API_URL')
-if _test_port is not None:
-    if _api_url is not None:
+def _resolve_base_url(cli_base_url):
+    """
+    Resolve base URL with priority chain: CLI parameter > env vars > default.
+    
+    Priority order:
+    1. CLI --base-url parameter
+    2. GATEWAY_API_URL environment variable 
+    3. THREEMA_TEST_API environment variable (for testing)
+    4. Default URL (handled by Connection class)
+    
+    Returns:
+        str or None: The resolved base URL, or None for default
+    """
+    # Environment variables
+    test_port = os.environ.get('THREEMA_TEST_API')
+    api_url = os.environ.get('GATEWAY_API_URL')
+    
+    # Validate that test and production env vars are not both set
+    if test_port is not None and api_url is not None:
         raise RuntimeError('GATEWAY_API_URL cannot be set alongside THREEMA_TEST_API')
-    _mock_url = 'http://{}:{}'.format('127.0.0.1', _test_port)
-    Connection.urls = {key: value.replace('https://msgapi.threema.ch', _mock_url)
-                       for key, value in Connection.urls.items()}
-    click.echo(('WARNING: Currently running in test mode!'
-                'The Threema Gateway Server will not be contacted!'), err=True)
-else:
-    if _api_url is not None:
-        if not _api_url.startswith('https://'):
+    
+    # Priority 1: CLI parameter
+    if cli_base_url is not None:
+        if not cli_base_url.startswith('https://') and not cli_base_url.startswith('http://127.0.0.1'):
+            raise RuntimeError('Base URL must begin with "https://" (or "http://127.0.0.1" for testing)')
+        return cli_base_url.rstrip('/')
+    
+    # Priority 2: GATEWAY_API_URL environment variable
+    if api_url is not None:
+        if not api_url.startswith('https://'):
             raise RuntimeError('GATEWAY_API_URL must begin with "https://"')
-        Connection.urls = {key: value.replace(
-                'https://msgapi.threema.ch',
-                _api_url.rstrip('/')
-            )
-            for key, value in Connection.urls.items()}
+        return api_url.rstrip('/')
+    
+    # Priority 3: THREEMA_TEST_API environment variable
+    if test_port is not None:
+        click.echo(('WARNING: Currently running in test mode! '
+                    'The Threema Gateway Server will not be contacted!'), err=True)
+        return 'http://127.0.0.1:{}'.format(test_port)
+    
+    # Priority 4: Default (None lets Connection class handle it)
+    return None
 
 
 class _MockConnection(AioRunMixin):
@@ -71,8 +92,9 @@ class _MockConnection(AioRunMixin):
 @click.option('-v', '--verbosity', type=click.IntRange(0, len(_logging_levels)),
               default=0, help="Logging verbosity.")
 @click.option('-c', '--colored', is_flag=True, help='Colourise logging output.')
+@click.option('--base-url', help='Base URL for the Threema Gateway API.')
 @click.pass_context
-def cli(ctx, verbosity, colored):
+def cli(ctx, verbosity, colored, base_url):
     """
     Command Line Interface. Use --help for details.
     """
@@ -93,7 +115,9 @@ def cli(ctx, verbosity, colored):
         _logging_handler = handler
 
     # Store on context
-    ctx.obj = {}
+    ctx.obj = {
+        'base_url': _resolve_base_url(base_url)
+    }
 
 
 @cli.command(short_help='Show version information.', help="""
@@ -248,7 +272,7 @@ async def send_simple(ctx, **arguments):
         text = click.get_text_stream('stdin').read().strip()
 
     # Create connection
-    connection = Connection(arguments['from'], arguments['secret'], **ctx.obj)
+    connection = Connection(arguments['from'], arguments['secret'], base_url=ctx.obj['base_url'])
     async with connection:
         # Create message
         message = simple.TextMessage(
@@ -296,7 +320,7 @@ async def send_e2e(ctx, **arguments):
         identity=arguments['from'],
         secret=arguments['secret'],
         key=private_key,
-        **ctx.obj
+        base_url=ctx.obj['base_url']
     )
 
     async with connection:
@@ -342,7 +366,7 @@ async def send_image(ctx, **arguments):
         identity=arguments['from'],
         secret=arguments['secret'],
         key=private_key,
-        **ctx.obj
+        base_url=ctx.obj['base_url']
     )
 
     async with connection:
@@ -393,7 +417,7 @@ async def send_video(ctx, **arguments):
         identity=arguments['from'],
         secret=arguments['secret'],
         key=private_key,
-        **ctx.obj
+        base_url=ctx.obj['base_url']
     )
 
     async with connection:
@@ -447,7 +471,7 @@ async def send_file(ctx, **arguments):
         identity=arguments['from'],
         secret=arguments['secret'],
         key=private_key,
-        **ctx.obj
+        base_url=ctx.obj['base_url']
     )
 
     async with connection:
@@ -488,7 +512,7 @@ async def lookup(ctx, **arguments):
         raise click.ClickException(error)
 
     # Create connection
-    connection = Connection(arguments['from'], secret=arguments['secret'], **ctx.obj)
+    connection = Connection(arguments['from'], secret=arguments['secret'], base_url=ctx.obj['base_url'])
     async with connection:
         # Do lookup
         if 'id' in mode:
@@ -511,7 +535,7 @@ Prints a set of capabilities in alphabetical order on success.
 @util.aio_run
 async def capabilities(ctx, **arguments):
     # Create connection
-    connection = Connection(arguments['from'], arguments['secret'], **ctx.obj)
+    connection = Connection(arguments['from'], arguments['secret'], base_url=ctx.obj['base_url'])
     async with connection:
         # Lookup and format returned capabilities
         coroutine = connection.get_reception_capabilities(arguments['id'])
@@ -530,7 +554,7 @@ identity and SECRET is the API secret.
 @util.aio_run
 async def credits(ctx, **arguments):
     # Create connection
-    connection = Connection(arguments['from'], arguments['secret'], **ctx.obj)
+    connection = Connection(arguments['from'], arguments['secret'], base_url=ctx.obj['base_url'])
     async with connection:
         # Get and print credits
         click.echo(await connection.get_credits())

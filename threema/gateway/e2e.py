@@ -13,6 +13,7 @@ import json
 import mimetypes
 import os
 import struct
+import warnings
 from typing import (
     Optional,
     Tuple,
@@ -54,6 +55,7 @@ __all__ = (
     'ImageMessage',
     'VideoMessage',
     'FileMessage',
+    'RenderingType',
 )
 
 BLOB_ID_LENGTH = 16
@@ -62,6 +64,16 @@ BLOB_ID_LENGTH = 16
 # The remaining POST parameters aren't that big.
 # See: https://gateway.threema.ch/en/developer/api
 MAX_HTTP_REQUEST_SIZE = 16384
+
+
+@enum.unique
+class RenderingType(enum.IntEnum):
+    """
+    The rendering type influences how a file message is displayed on the device of the recipient.
+    """
+    FILE = 0      # Display as default file message
+    MEDIA = 1     # Display as media file message (e.g. image or audio message)
+    STICKER = 2   # Display as sticker (images with transparency, rendered without bubble)
 
 
 def _pk_encrypt(key_pair: Tuple[Key, Key], data: bytes, nonce: Optional[bytes] = None):
@@ -791,10 +803,14 @@ class TextMessage(Message):
 
 
 # TODO: Update docstring (arguments)
-@aio_run_proxy
+@aio_run_proxy  
 class ImageMessage(Message):
     """
     An image message.
+
+    .. deprecated:: 
+        ImageMessage is deprecated. Use FileMessage with rendering_type=RenderingType.MEDIA instead.
+        This class is maintained for backward compatibility.
 
     If the connection passed to the constructor is in blocking mode, then all
     methods on this class will be blocking too.
@@ -815,6 +831,7 @@ class ImageMessage(Message):
     async_functions = {
         'pack',
         'unpack',
+        'send',
     }
     allowed_mime_types = {
         'image/jpg',
@@ -824,25 +841,42 @@ class ImageMessage(Message):
     required_capabilities = {
         ReceptionCapability.image
     }
-    _formatter = '<{}sI{}s'.format(BLOB_ID_LENGTH, libnacl.crypto_box_NONCEBYTES)
 
     def __init__(
             self, connection,
             image=None, mime_type=None, image_path=None,
             from_data=None, **kwargs
     ):
+        warnings.warn(
+            "ImageMessage is deprecated. Use FileMessage with rendering_type=RenderingType.MEDIA instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         super().__init__(connection, Message.Type.image_message,
                          from_data=from_data, **kwargs)
+        
         if self._direction == self.Direction.outgoing:
-            image_and_mime = all((param is not None for param in [image, mime_type]))
-            path_param = image_path is not None
-            if sum((1 for param in (image_and_mime, path_param) if param)) != 1:
-                raise ValueError(("Either 'image' and 'mime_type' or 'image_path' "
-                                  "need to be specified"))
+            # Convert parameters to FileMessage format
+            file_content = image
+            file_path = image_path
+            
+            # Create internal FileMessage with MEDIA rendering type
+            self._file_message = FileMessage(
+                connection=connection,
+                file_content=file_content,
+                mime_type=mime_type,
+                file_path=file_path,
+                rendering_type=RenderingType.MEDIA,
+                **kwargs
+            )
+            
+            # Store for compatibility
             self._image = image
-            self._mime_type = mime_type
+            self._mime_type = mime_type  
             self._image_path = image_path
         else:
+            # For incoming messages, create from the FileMessage data  
             self._image = from_data['image']
             self._mime_type = from_data['mime_type']
             self._image_path = None
@@ -855,80 +889,58 @@ class ImageMessage(Message):
         Raises :exc:`OSError` in case the image could not be read from
         the specified path.
         """
-        self._read_image()
-        return self._image
+        if self._direction == self.Direction.outgoing:
+            return self._file_message.file_content
+        else:
+            return self._image
 
     @property
     def mime_type(self):
         """
         Return the mime type as :class:`str`.
         """
-        self._read_image()
-        return self._mime_type
-
-    def _read_image(self):
-        """
-        Read and store the image as :class:`bytes`.
-
-        Raises :exc:`OSError` in case the image could not be read from
-        the specified path.
-        """
-        if self._image is None:
-            with open(self._image_path, mode='rb') as file:
-                # Read content
-                self._image = file.read()
-
-            # Guess the mime type
-            mime_type, _ = mimetypes.guess_type(self._image_path)
-            if mime_type not in self.allowed_mime_types:
-                raise UnsupportedMimeTypeError(mime_type)
-            self._mime_type = mime_type
+        if self._direction == self.Direction.outgoing:
+            return self._file_message.mime_type
+        else:
+            return self._mime_type
 
     async def pack(self, writer):
-        # Check capabilities of recipient
-        await self.check_capabilities(self.required_capabilities)
+        return await self._file_message.pack(writer)
 
-        # Encrypt and upload image
-        image_nonce, image_data = await self.encrypt(self.image)
-        blob_id = await self._connection.upload(image_data)
-        try:
-            blob_id = binascii.unhexlify(blob_id)
-        except binascii.Error as exc:
-            raise MessageError('Could not convert hex-encoded blob id') from exc
-
-        # Pack blob id, image length and image nonce
-        try:
-            data = struct.pack(self._formatter, blob_id, len(self.image), image_nonce)
-        except struct.error as exc:
-            raise MessageError('Could not pack blob id, length and nonce') from exc
-
-        # Add data
-        writer.writeexactly(data)
+    async def send(self, get_data_only=False):
+        return await self._file_message.send(get_data_only=get_data_only)
 
     @classmethod
     async def unpack(cls, connection, parameters, key_pair, reader):
-        # Unpack blob id, image length and image nonce
-        length = struct.calcsize(cls._formatter)
         try:
-            data = struct.unpack(cls._formatter, reader.readexactly(length))
-        except struct.error as exc:
-            raise MessageError('Could not unpack blob id, length and nonce') from exc
-        blob_id, image_length, image_nonce = data
+            file_message = await FileMessage.unpack(connection, parameters, key_pair, reader)
+            return cls(connection, from_data=dict(parameters, **{
+                'image': file_message.file_content,
+                'mime_type': file_message.mime_type,
+            }))
+        except MessageError:
+            # Fallback for legacy binary format compatibility
+            _formatter = '<{}sI{}s'.format(BLOB_ID_LENGTH, libnacl.crypto_box_NONCEBYTES)
+            length = struct.calcsize(_formatter)
+            try:
+                data = struct.unpack(_formatter, reader.readexactly(length))
+            except struct.error as exc:
+                raise MessageError('Could not unpack blob id, length and nonce') from exc
+            blob_id, image_length, image_nonce = data
 
-        # Download and decrypt image
-        blob_id = binascii.hexlify(blob_id).decode('ascii')
-        response = await connection.download(blob_id)
-        image_data = await response.read()
-        image = cls.decrypt(image_nonce, image_data, key_pair)
+            # Download and decrypt image
+            blob_id = binascii.hexlify(blob_id).decode('ascii')
+            response = await connection.download(blob_id)
+            image_data = await response.read()
+            image = cls.decrypt(image_nonce, image_data, key_pair)
 
-        # Return instance
-        return cls(connection, from_data=dict(parameters, **{
-            'image': image,
-            'mime_type': None,  # TODO: Guess mime type from bytes
-        }))
+            # Return instance
+            return cls(connection, from_data=dict(parameters, **{
+                'image': image,
+                'mime_type': 'application/octet-stream',  # Fallback MIME type for legacy format
+            }))
 
 
-# TODO: Update docstring (arguments)
 @aio_run_proxy
 class VideoMessage(Message):
     """
@@ -1157,6 +1169,7 @@ class FileMessage(Message):
             self, connection,
             file_content=None, mime_type=None, file_name='file', file_path=None,
             thumbnail_content=None, thumbnail_path=None, caption=None,
+            rendering_type=None,
             from_data=None, **kwargs
     ):
         super().__init__(connection, Message.Type.file_message,
@@ -1178,6 +1191,14 @@ class FileMessage(Message):
             self._thumbnail_content = thumbnail_content
             self._thumbnail_path = thumbnail_path
             self._caption = caption
+            
+            # Handle rendering type - auto-detect if not specified
+            if rendering_type is None:
+                # We need to read the file to get MIME type for auto-detection
+                self._read_file()
+                self._rendering_type = self._auto_detect_rendering_type(self._mime_type)
+            else:
+                self._rendering_type = rendering_type
         else:
             self._file_content = from_data['file_content']
             self._mime_type = from_data['mime_type']
@@ -1186,6 +1207,29 @@ class FileMessage(Message):
             self._thumbnail_content = from_data['thumbnail_content']
             self._thumbnail_path = None
             self._caption = from_data['caption']
+            self._rendering_type = from_data.get('rendering_type', RenderingType.FILE)
+
+    def _auto_detect_rendering_type(self, mime_type: Optional[str]) -> RenderingType:
+        """
+        Auto-detect the appropriate rendering type based on MIME type.
+        """
+        if not mime_type:
+            return RenderingType.FILE
+        
+        # Images should be rendered as MEDIA
+        if mime_type.startswith('image/'):
+            # Check for transparency support (potential sticker)
+            if mime_type in ['image/png', 'image/webp', 'image/gif']:
+                # Could check actual image for transparency, but default to MEDIA
+                return RenderingType.MEDIA
+            return RenderingType.MEDIA
+        
+        # Audio and video should be rendered as MEDIA
+        if mime_type.startswith('audio/') or mime_type.startswith('video/'):
+            return RenderingType.MEDIA
+        
+        # Everything else as FILE
+        return RenderingType.FILE
 
     @property
     def file_content(self):
@@ -1216,6 +1260,30 @@ class FileMessage(Message):
         """
         self._read_thumbnail()
         return self._thumbnail_content
+
+    @property
+    def rendering_type(self):
+        """
+        Return the rendering type as :class:`RenderingType`.
+        """
+        return self._rendering_type
+
+    @property
+    def caption(self):
+        """
+        Return the caption/description as :class:`str`.
+        """
+        return self._caption
+
+    @property
+    def file_name(self):
+        """
+        Return the file name as :class:`str`.
+        """
+        if self._file_path is not None:
+            return os.path.basename(self._file_path)
+        else:
+            return self._file_name
 
     def _read_file(self):
         """
@@ -1257,71 +1325,82 @@ class FileMessage(Message):
         _, file_data = _sk_encrypt(key, self.file_content, nonce=self.nonce['file'])
         file_id = await self._connection.upload(file_data)
 
-        # Build JSON
+        # Get file name
         if self._file_path is not None:
             file_name = os.path.basename(self._file_path)
         else:
             file_name = self._file_name
-        content = {
-            'b': file_id,
-            'k': hex_key.decode('ascii'),
-            'm': self.mime_type,
-            'n': file_name,
-            's': len(self.file_content),
-            'i': 0,
-        }
-
-        # Add caption (if any)
-        if self._caption:
-            content["d"] = self._caption
 
         # Encrypt and upload thumbnail (if any)
+        thumbnail_id = None
         thumbnail_content = self.thumbnail_content
         if thumbnail_content is not None:
             _, thumbnail_data = _sk_encrypt(
                 key, thumbnail_content, nonce=self.nonce['thumbnail'])
             thumbnail_id = await self._connection.upload(thumbnail_data)
-            # Update JSON
-            content['t'] = thumbnail_id
 
-        # Pack payload (compact JSON encoding)
-        try:
-            content = json.dumps(content, separators=(',', ':')).encode('ascii')
-        except UnicodeError as exc:
-            raise MessageError('Could not encode JSON') from exc
+        # Build JSON payload according to Rust FileMessage specification
+        json_payload = {
+            'b': file_id,  # file blob ID (hex string)
+            'k': hex_key.decode('ascii'),  # blob encryption key (hex string)
+            'm': self.mime_type,  # media type (MIME type)
+            'j': self.rendering_type.value,  # rendering type (0=FILE, 1=MEDIA, 2=STICKER)
+            's': len(self.file_content),  # file size in bytes
+            'n': file_name,  # file name
+        }
 
-        # Add payload
-        writer.writeexactly(content)
+        # Add optional fields
+        if thumbnail_id:
+            json_payload['t'] = thumbnail_id  # thumbnail blob ID (hex, optional)
+        
+        if self._caption:
+            json_payload['d'] = self._caption  # description/caption (optional)
+
+        # Serialize to JSON
+        json_str = json.dumps(json_payload, separators=(',', ':'))
+        
+        # Add JSON content to writer
+        writer.writeexactly(json_str.encode('utf-8'))
 
     @classmethod
     async def unpack(cls, connection, parameters, key_pair, reader):
-        # Get payload
+        # Get payload data
+        data = bytes(reader.readexactly(len(reader)))
+        
         try:
-            content = bytes(reader.readexactly(len(reader))).decode('utf-8')
-        except UnicodeError as exc:
-            raise MessageError('Could not decode JSON') from exc
+            # Try to parse as JSON (new format)
+            json_str = data.decode('utf-8')
+            payload = json.loads(json_str)
+            
+            # Extract fields from JSON payload
+            file_id = payload['b']  # file blob ID (hex string)
+            hex_key = payload['k']  # blob encryption key (hex string)
+            mime_type = payload['m']  # media type (MIME type)
+            file_size = payload['s']  # file size in bytes
+            file_name = payload['n']  # file name
+            
+            # Handle rendering type - support both old 'i' and new 'j' fields for backward compatibility
+            if 'j' in payload:
+                rendering_type = RenderingType(payload['j'])  # new format
+            elif 'i' in payload:
+                rendering_type = RenderingType(payload['i'])  # old format for backward compatibility
+            else:
+                rendering_type = RenderingType.FILE  # default
+            
+            # Optional fields
+            thumbnail_id = payload.get('t')  # thumbnail blob ID (hex, optional)
+            caption = payload.get('d')  # description/caption (optional)
+            
+            # Convert hex key to bytes
+            try:
+                key = binascii.unhexlify(hex_key)
+            except binascii.Error as exc:
+                raise MessageError('Could not decode hex-encoded key') from exc
 
-        # Unpack payload from JSON
-        try:
-            content = json.loads(content)
-        except UnicodeError as exc:
-            raise MessageError('Could not decode JSON') from exc
-        except ValueError as exc:
-            raise MessageError('Could not load JSON') from exc
-
-        # Unpack JSON
-        try:
-            file_id = content['b']
-            key = binascii.unhexlify(content['k'])
-            mime_type = content['m']
-            file_name = content['n']
-            file_content_length = content['s']
-        except KeyError as exc:
-            raise MessageError('Invalid JSON payload') from exc
-        except binascii.Error as exc:
-            raise MessageError('Could not convert hex-encoded secret key') from exc
-        thumbnail_id = content.get('t')
-        caption = content.get('d')
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            # Fallback to binary format parsing for very old messages
+            # This maintains compatibility with any pre-existing binary format messages
+            raise MessageError('Unsupported FileMessage format - expected JSON payload')
 
         # Download and decrypt thumbnail (if any)
         if thumbnail_id is not None:
@@ -1338,9 +1417,9 @@ class FileMessage(Message):
 
         # Validate file content length
         length = len(file_content)
-        if length != file_content_length:
+        if length != file_size:
             message = 'File content length does not match (expected: {}, got: {})'
-            raise MessageError(message.format(file_content_length, length))
+            raise MessageError(message.format(file_size, length))
 
         # Return instance
         return cls(connection, from_data=dict(parameters, **{
@@ -1349,4 +1428,5 @@ class FileMessage(Message):
             'file_name': file_name,
             'thumbnail_content': thumbnail_content,
             'caption': caption,
+            'rendering_type': rendering_type,
         }))

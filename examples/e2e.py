@@ -15,6 +15,7 @@ from threema.gateway import (
 from threema.gateway.e2e import (
     FileMessage,
     ImageMessage,
+    RenderingType,
     TextMessage,
     VideoMessage,
 )
@@ -132,6 +133,80 @@ async def send_file_with_thumbnail(connection):
     return await message.send()
 
 
+async def send_image_as_file(connection):
+    """
+    Send an image using the new FileMessage format with MEDIA rendering type.
+    This is the recommended way to send images instead of the deprecated ImageMessage.
+    """
+    message = FileMessage(
+        connection=connection,
+        to_id='ECHOECHO',
+        file_path='res/threema.jpg',
+        rendering_type=RenderingType.MEDIA,
+        caption='This image is sent using FileMessage with MEDIA rendering'
+    )
+    return await message.send()
+
+
+async def send_sticker(connection):
+    """
+    Send a sticker using FileMessage with STICKER rendering type.
+    Stickers are displayed without message bubbles and typically have transparency.
+    """
+    message = FileMessage(
+        connection=connection,
+        to_id='ECHOECHO',
+        file_path='res/sticker.png',
+        rendering_type=RenderingType.STICKER
+    )
+    return await message.send()
+
+
+async def send_audio_file(connection):
+    """
+    Send an audio file using FileMessage with MEDIA rendering type.
+    Audio files should use MEDIA rendering for proper display.
+    """
+    message = FileMessage(
+        connection=connection,
+        to_id='ECHOECHO',
+        file_path='res/audio.mp3',
+        rendering_type=RenderingType.MEDIA,
+        caption='Audio message sent as FileMessage'
+    )
+    return await message.send()
+
+
+async def send_document_file(connection):
+    """
+    Send a document file using FileMessage with FILE rendering type.
+    Documents should use FILE rendering for standard file display.
+    """
+    message = FileMessage(
+        connection=connection,
+        to_id='ECHOECHO',
+        file_path='res/document.pdf',
+        rendering_type=RenderingType.FILE,
+        caption='Document sent as FileMessage'
+    )
+    return await message.send()
+
+
+async def send_file_auto_detect(connection):
+    """
+    Send a file using FileMessage with automatic rendering type detection.
+    The rendering type will be automatically determined based on MIME type.
+    """
+    message = FileMessage(
+        connection=connection,
+        to_id='ECHOECHO',
+        file_path='res/threema.jpg',
+        # rendering_type is omitted - will auto-detect as MEDIA for images
+        caption='File with auto-detected rendering type'
+    )
+    return await message.send()
+
+
 async def main():
     connection = Connection(
         identity='*YOUR_GATEWAY_THREEMA_ID',
@@ -140,13 +215,25 @@ async def main():
     )
     try:
         async with connection:
+            # Text message examples
             await send(connection)
             await send_cached_key(connection)
             await send_cached_key_file(connection)
+            
+            # Image message (using deprecated ImageMessage class)
             await send_image(connection)
+            
+            # Video and file examples  
             await send_video(connection)
             await send_file(connection)
             await send_file_with_thumbnail(connection)
+            
+            # FileMessage examples with different rendering types
+            await send_image_as_file(connection)
+            await send_sticker(connection)
+            await send_audio_file(connection)
+            await send_document_file(connection)
+            await send_file_auto_detect(connection)
     except GatewayError as exc:
         print('Error:', exc)
 
