@@ -82,6 +82,8 @@ def _pk_encrypt(key_pair: Tuple[Key, Key], data: bytes, nonce: Optional[bytes] =
     """
     # Assemble and encrypt the payload
     private, public = key_pair
+    if not Key.is_valid_public_key(public):
+        raise libnacl.CryptError("Invalid public key")
     box = libnacl.public.Box(sk=private, pk=public)
     return box.encrypt(data, nonce=nonce, pack_nonce=False)
 
@@ -103,6 +105,8 @@ def _pk_decrypt(key_pair: Tuple[Key, Key], nonce: bytes, data: bytes):
     """
     # Decrypt payload
     private, public = key_pair
+    if not Key.is_valid_public_key(public):
+        raise libnacl.CryptError("Invalid public key")
     box = libnacl.public.Box(sk=private, pk=public)
     return box.decrypt(data, nonce=nonce)
 

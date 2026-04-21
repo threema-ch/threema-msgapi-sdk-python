@@ -154,3 +154,23 @@ class Key:
         Return the :class:`libnacl.public.PublicKey` instance.
         """
         return libnacl.public.PublicKey(private_key.pk)
+
+    @staticmethod
+    def is_valid_public_key(public_key):
+        """
+        Check if the public key is valid.
+
+        Arguments:
+            - `public_key`: An instance of
+              :class:`libnacl.public.PublicKey`.
+
+        Return True if the key is a valid public key, False if not.
+        """
+        if not isinstance(public_key, libnacl.public.PublicKey):
+            return False
+        if len(public_key.pk) != libnacl.crypto_box_PUBLICKEYBYTES:
+            return False
+
+        # Reject all-zero public keys
+        zero_public_key = libnacl.public.PublicKey(bytes(libnacl.crypto_box_PUBLICKEYBYTES))
+        return public_key != zero_public_key
