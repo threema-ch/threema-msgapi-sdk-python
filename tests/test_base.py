@@ -1,5 +1,7 @@
 import libnacl
+import libnacl.public
 import pytest
+from packaging.version import Version
 
 from threema.gateway import (
     e2e,
@@ -25,6 +27,21 @@ class TestCrypto:
             e2e._pk_decrypt(key_pair, nonce, data_encrypted + b'0')
         assert 'decrypt' in str(exc_info.value)
 
+    def test_invalid_non_contributory_public_key(self):
+        all_zero_public_key = libnacl.public.PublicKey(
+            bytes(libnacl.crypto_box_PUBLICKEYBYTES))
+        key_pair = key.Key.generate_secret_key, all_zero_public_key
+        data_in = b"meow"
+        nonce = b"0" * 24
+
+        with pytest.raises(libnacl.CryptError) as exc_info:
+            e2e._pk_encrypt(key_pair, data_in, nonce=nonce)
+        assert "Invalid public key (non-contributory)" in str(exc_info.value)
+
+        with pytest.raises(libnacl.CryptError) as exc_info:
+            e2e._pk_decrypt(key_pair, nonce, bytes(5))
+        assert "Invalid public key (non-contributory)" in str(exc_info.value)
+
     def test_valid(self):
         key_pair = key.Key.generate_pair()
         data_in = b'meow'
@@ -32,3 +49,13 @@ class TestCrypto:
         _, data_encrypted = e2e._pk_encrypt(key_pair, data_in, nonce=nonce)
         data_out = e2e._pk_decrypt(key_pair, nonce, data_encrypted)
         assert data_in == data_out
+
+    @pytest.mark.skipif(
+        Version(libnacl.sodium_version_string().decode("ascii")) < Version("1.0.7"),
+        reason="no zero-result check on X25519 in this libnacl backend")
+    def test_libsodium_non_contributory_public_key(self):
+        all_zero_pk = libnacl.public.PublicKey(bytes(libnacl.crypto_box_PUBLICKEYBYTES))
+        alice_sk, _ = key.Key.generate_pair()
+        with pytest.raises(libnacl.CryptError) as exc_info:
+            libnacl.public.Box(alice_sk, all_zero_pk)
+        assert 'Unable to compute shared key' in str(exc_info)

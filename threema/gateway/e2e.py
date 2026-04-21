@@ -82,6 +82,7 @@ def _pk_encrypt(key_pair: Tuple[Key, Key], data: bytes, nonce: Optional[bytes] =
     """
     # Assemble and encrypt the payload
     private, public = key_pair
+    Key.ensure_valid_public_key(public)
     box = libnacl.public.Box(sk=private, pk=public)
     return box.encrypt(data, nonce=nonce, pack_nonce=False)
 
@@ -103,6 +104,7 @@ def _pk_decrypt(key_pair: Tuple[Key, Key], nonce: bytes, data: bytes):
     """
     # Decrypt payload
     private, public = key_pair
+    Key.ensure_valid_public_key(public)
     box = libnacl.public.Box(sk=private, pk=public)
     return box.decrypt(data, nonce=nonce)
 

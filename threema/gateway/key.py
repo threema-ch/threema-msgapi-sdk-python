@@ -42,6 +42,10 @@ class HMAC:
         return hmac.new(HMAC.keys[hash_type], message.encode('ascii'), hashlib.sha256)
 
 
+_NON_CONTRIBUTORY_PUBLIC_KEY = libnacl.public.PublicKey(
+    bytes(libnacl.crypto_box_PUBLICKEYBYTES))
+
+
 class Key:
     """
     Encode or decode a key.
@@ -154,3 +158,23 @@ class Key:
         Return the :class:`libnacl.public.PublicKey` instance.
         """
         return libnacl.public.PublicKey(private_key.pk)
+
+    @staticmethod
+    def ensure_valid_public_key(public_key):
+        """
+        Ensure a public key is valid.
+
+        Arguments:
+            - `public_key`: An instance of
+              :class:`libnacl.public.PublicKey`.
+
+        Raises :class:`libnacl.CryptError` if the public key is invalid.
+        """
+        if not isinstance(public_key, libnacl.public.PublicKey):
+            raise libnacl.CryptError("Invalid public key")
+        if len(public_key.pk) != libnacl.crypto_box_PUBLICKEYBYTES:
+            raise libnacl.CryptError("Invalid public key")
+
+        # Reject all-zero public keys (mon-contributory)
+        if public_key == _NON_CONTRIBUTORY_PUBLIC_KEY:
+            raise libnacl.CryptError("Invalid public key (non-contributory)")
