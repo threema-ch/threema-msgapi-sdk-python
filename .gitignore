@@ -74,3 +74,6 @@ gen
 
 # MyPy Cache
 .mypy_cache/
+
+# OS specific
+.DS_Store
