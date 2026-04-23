@@ -246,7 +246,7 @@ def add_callback_route(
     if receive_handler is None:
         receive_handler = Message.receive
     context = CallbackContext(
-        connection.secret.encode('ascii'),
+        connection.secret.encode('utf-8'),
         connection,
         message_handler,
         receive_handler,
@@ -1288,7 +1288,7 @@ class FileMessage(Message):
 
         # Pack payload (compact JSON encoding)
         try:
-            content = json.dumps(content, separators=(',', ':')).encode('ascii')
+            content = json.dumps(content, separators=(',', ':')).encode('utf-8')
         except UnicodeError as exc:
             raise MessageError('Could not encode JSON') from exc
 
