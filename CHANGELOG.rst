@@ -1,6 +1,14 @@
 Changelog
 *********
 
+Unreleased
+----------
+
+- Add support for Python 3.13
+- Drop support for Python versions below 3.10
+- Check for non-contributory public keys (Note: When using a modern-ish
+  libsodium version, this check is redundant)
+
 `8.0.0`_ (2024-08-21)
 ---------------------
 
