@@ -401,7 +401,10 @@ def aio_run(func):
         print(result)
     """
     def _wrapper(*args, **kwargs):
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
         return loop.run_until_complete(func(*args, **kwargs))
     return functools.update_wrapper(_wrapper, func)
 
@@ -441,7 +444,10 @@ def aio_run_proxy(cls):
     class _AioRunProxyDecoratorFactory(wrapt.ObjectProxy):
         def __call__(self, *args, **kwargs):
             # Create the instance while an event loop is running
-            loop = asyncio.get_event_loop()
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
             if loop.is_running():
                 instance = cls(*args, **kwargs)
             else:
