@@ -486,8 +486,11 @@ def aio_run_proxy(cls):
                         method = aio_run(getattr(instance_, name_))
                         return method(*args_, **kwargs_)
 
+                    # functools.partial is a method descriptor since
+                    # Python 3.14, so prevent it from being bound to
+                    # the proxy instance
                     _method = functools.partial(_method, instance, name)
-                    setattr(_AioRunProxy, name, _method)
+                    setattr(_AioRunProxy, name, staticmethod(_method))
 
                 return _AioRunProxy(instance)
             else:

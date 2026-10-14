@@ -31,3 +31,26 @@ class TestAioRun:
 
         first, second = _run_in_thread(lambda: (get_loop(), get_loop()))
         assert first is second
+
+
+@util.aio_run_proxy
+class _Counter(util.AioRunMixin):
+    async_functions = {'increment'}
+
+    def __init__(self, blocking=False):
+        super().__init__(blocking=blocking)
+        self.value = 0
+
+    async def increment(self, by=1):
+        await asyncio.sleep(0)
+        self.value += by
+        return self.value
+
+
+class TestAioRunProxy:
+    def test_blocking_methods(self):
+        def run():
+            counter = _Counter(blocking=True)
+            return counter.increment(), counter.increment(by=2)
+
+        assert _run_in_thread(run) == (1, 3)
