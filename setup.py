@@ -56,7 +56,7 @@ setup(
         'libnacl>=1.5.2,<3',
         'click>=8,<9',
         'aiohttp>=3.7.3,<4',
-        'wrapt>=1.10.10,<2',
+        'wrapt>=1.10.10,<3',
     ],
     tests_require=tests_require,
     extras_require={
