@@ -327,7 +327,7 @@ def async_ttl_cache(ttl):
     """
     def _decorator(func):
         # Ensure it is a coroutine
-        if not asyncio.iscoroutinefunction(func):
+        if not inspect.iscoroutinefunction(func):
             raise ValueError('Function is not a coroutine')
 
         # Cache storage

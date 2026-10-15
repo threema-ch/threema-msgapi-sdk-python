@@ -1,5 +1,8 @@
 import asyncio
 import threading
+import warnings
+
+import pytest
 
 from threema.gateway import util
 
@@ -54,3 +57,20 @@ class TestAioRunProxy:
             return counter.increment(), counter.increment(by=2)
 
         assert _run_in_thread(run) == (1, 3)
+
+
+class TestAsyncTtlCache:
+    def test_coroutine_function(self):
+        async def get_value():
+            return 1
+
+        # asyncio.iscoroutinefunction() is deprecated since Python 3.14
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', DeprecationWarning)
+            cached = util.async_ttl_cache(ttl=60)(get_value)
+
+        assert _run_in_thread(lambda: asyncio.run(cached())) == 1
+
+    def test_not_a_coroutine_function(self):
+        with pytest.raises(ValueError):
+            util.async_ttl_cache(ttl=60)(lambda: 1)
