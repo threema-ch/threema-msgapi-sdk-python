@@ -327,7 +327,7 @@ def async_ttl_cache(ttl):
     """
     def _decorator(func):
         # Ensure it is a coroutine
-        if not asyncio.iscoroutinefunction(func):
+        if not inspect.iscoroutinefunction(func):
             raise ValueError('Function is not a coroutine')
 
         # Cache storage
@@ -378,6 +378,22 @@ def async_ttl_cache(ttl):
     return _decorator
 
 
+def _get_event_loop():
+    """
+    Return the current event loop. If there is none, create one and set
+    it as the current event loop, so that subsequent calls reuse it.
+
+    Since Python 3.14, :func:`asyncio.get_event_loop` raises
+    :exc:`RuntimeError` instead of creating the loop implicitly.
+    """
+    try:
+        return asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        return loop
+
+
 def aio_run(func):
     """
     Decorate an async function to run as a normal blocking function.
@@ -401,10 +417,7 @@ def aio_run(func):
         print(result)
     """
     def _wrapper(*args, **kwargs):
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
+        loop = _get_event_loop()
         return loop.run_until_complete(func(*args, **kwargs))
     return functools.update_wrapper(_wrapper, func)
 
@@ -444,10 +457,7 @@ def aio_run_proxy(cls):
     class _AioRunProxyDecoratorFactory(wrapt.ObjectProxy):
         def __call__(self, *args, **kwargs):
             # Create the instance while an event loop is running
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
+            loop = _get_event_loop()
             if loop.is_running():
                 instance = cls(*args, **kwargs)
             else:
@@ -476,8 +486,11 @@ def aio_run_proxy(cls):
                         method = aio_run(getattr(instance_, name_))
                         return method(*args_, **kwargs_)
 
+                    # functools.partial is a method descriptor since
+                    # Python 3.14, so prevent it from being bound to
+                    # the proxy instance
                     _method = functools.partial(_method, instance, name)
-                    setattr(_AioRunProxy, name, _method)
+                    setattr(_AioRunProxy, name, staticmethod(_method))
 
                 return _AioRunProxy(instance)
             else:

@@ -3,7 +3,7 @@ import os
 import sys
 
 from setuptools import (
-    find_packages,
+    find_namespace_packages,
     setup,
 )
 
@@ -50,13 +50,13 @@ tests_require = [
 setup(
     name='threema.gateway',
     version=get_version(),
-    packages=find_packages(include=["threema.*"]),
+    packages=find_namespace_packages(include=["threema.*"]),
     install_requires=[
         'logbook>=1.1.0,<2',
         'libnacl>=1.5.2,<3',
         'click>=8,<9',
         'aiohttp>=3.7.3,<4',
-        'wrapt>=1.10.10,<2',
+        'wrapt>=1.10.10,<3',
     ],
     tests_require=tests_require,
     extras_require={
